@@ -49,7 +49,6 @@ class FeedMachine(object):
         Args:
             database_filename: Filename of SQL database.
         """
-        super().__init__()
         self._database_filename = database_filename
         self._create_tables()
 
