@@ -32,7 +32,7 @@ import pickle
 import logging
 import sys
 
-class FeedMachine(object):
+class FeedDB(object):
     """Summary of class
 
     Longer class information...
