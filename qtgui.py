@@ -80,8 +80,8 @@ class MainWidget(QMainWindow):
 		self.setGeometry(300, 300, 250, 150)
 
 		# Signals
-		self.connect(databaseNewAction, SIGNAL("triggered()"), self.dbNew)
-		self.connect(databaseOpenAction, SIGNAL("triggered()"), self.dbOpen)
+		self.connect(databaseNewAction, SIGNAL("triggered()"), self.databaseNew)
+		self.connect(databaseOpenAction, SIGNAL("triggered()"), self.databaseOpen)
 		self.connect(feedAddAction, SIGNAL("triggered()"), self.feedAdd)
 		self.connect(feedRefreshAllAction, SIGNAL("triggered()"), self.feedRefreshAll)
 
@@ -106,12 +106,12 @@ class MainWidget(QMainWindow):
 	def feedRefreshAll(self):
 		pass
 
-	def dbOpen(self):
+	def databaseOpen(self):
 		filename = QFileDialog.getOpenFileName()
 		if filename:
 			self.feedDB = feedDB(filename)
 
-	def dbNew(self):
+	def databaseNew(self):
 		filename = QFileDialog.getSaveFileName()
 		if filename:
 			print(filename)
