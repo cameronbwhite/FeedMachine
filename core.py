@@ -301,7 +301,7 @@ class FeedDB(object):
 
                 cursor = connection.cursor()
 
-                cursor.excute('''
+                cursor.execute('''
                     DELETE FROM feeds
                     WHERE feed_id == ?
                     ''', str(feed_id) )
@@ -456,7 +456,7 @@ class FeedDB(object):
                 cursor = connection.cursor()
 
                 cursor.execute('''
-                    SELECT (feed_id, location, feed) FROM feeds
+                    SELECT feed_id, location, feed FROM feeds
                     ''')
 
                 while True:
@@ -466,8 +466,8 @@ class FeedDB(object):
                     else:
                         feed_id, location, feed = t[0], t[1], t[2]
                         d = feedparser.parse(location)
-                        update_feed(feed_id, d)
                         connection.commit()
+                        self.update_feed(feed_id, d)
                         run_scripts(feed_id)
 
         except sqlite3.Error as e:
@@ -485,7 +485,7 @@ class FeedDB(object):
                     UPDATE feeds
                     SET feed = ?
                     WHERE feed_id == ?
-                    ''', pickle.dumps(new_feed), str(feed_id) )
+                    ''', (pickle.dumps(new_feed), str(feed_id)))
 
                 connection.commit()
 
