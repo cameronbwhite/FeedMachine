@@ -49,40 +49,58 @@ class MainWidget(QMainWindow):
 		self.setWindowIcon(QIcon('web.png'))
 
 		# Actions
-		databaseNewAction = QAction(QIcon("images/databaseAdd.png"), "&New database", self)
-		databaseOpenAction = QAction(QIcon("images/databaseOpen.png"), "&Open database", self)
-		feedAddAction = QAction(QIcon("images/add.png"), "&Add Feed", self)
-		feedRefreshAllAction = QAction(QIcon("images/refresh.png"), "&Refresh All", self)
-		feedRefreshAction = QAction(QIcon("images/refresh.png"), "Refresh", self)
-		feedRemoveAction = QAction(QIcon("images/remove.png"), "Remove feed", self)
-		pluginAddAction = QAction(QIcon("images/pluginAdd.png"), "Add &Plugin", self)
+		self.databaseNewAction = QAction(QIcon("images/databaseAdd.png"), "&New database", self)
+		self.databaseNewAction.setToolTip("Create a new database")
+		self.databaseOpenAction = QAction(QIcon("images/databaseOpen.png"), "&Open database", self)
+		self.databaseOpenAction.setToolTip("Open a database")
+		self.feedAddAction = QAction(QIcon("images/add.png"), "&Add Feed", self)
+		self.feedAddAction.setToolTip("Add a new feed to the self.database")
+		self.feedRefreshAllAction = QAction(QIcon("images/refresh.png"), "&Refresh All", self)
+		self.feedRefreshAllAction.setToolTip("Refresh all the feeds in the self.database")
+		self.feedRefreshAction = QAction(QIcon("images/refresh.png"), "Refresh", self)
+		self.feedRefreshAction.setToolTip("Refresh feed")
+		self.feedRemoveAction = QAction(QIcon("images/remove.png"), "Remove feed", self)
+		self.feedRemoveAction.setToolTip("Remove feed from self.database")
+		self.pluginAddAction = QAction(QIcon("images/pluginAdd.png"), "Add &Plugin", self)
+		self.pluginAddAction.setToolTip("Attach plugin to feed")
+		self.pluginRemoveAction = QAction(QIcon("images/pluginRemove.png"), "Remove Plugin", self)
+		self.pluginRemoveAction.setToolTip("Remove plugin from feed")
 
 		# ToolBar
 		self.toolBar = self.addToolBar('Main')
-		self.toolBar.addAction(databaseOpenAction)
-		self.toolBar.addAction(databaseNewAction)
-		self.toolBar.addSeparator()
-		self.toolBar.addAction(feedAddAction)
-		self.toolBar.addAction(feedRefreshAllAction)
+		self.toolBar.setMovable(False)
+		self.toolBar.addAction(self.databaseOpenAction)
+		self.toolBar.addAction(self.databaseNewAction)
+		self.toolBar.addAction(self.feedAddAction)
+		self.toolBar.addAction(self.feedRemoveAction)
+		self.toolBar.addAction(self.pluginAddAction)
+		self.toolBar.addAction(self.pluginRemoveAction)
+		self.toolBar.addAction(self.feedRefreshAllAction)
 
 		# Menu
 		menuBar = self.menuBar()
 		fileMenu = 	menuBar.addMenu('&File')
 		actionMenu = menuBar.addMenu('&Action')
-		fileMenu.addAction(databaseNewAction)	
-		fileMenu.addAction(databaseOpenAction)
-		actionMenu.addAction(feedAddAction)
-		actionMenu.addAction(feedRefreshAllAction)
+		fileMenu.addAction(self.databaseNewAction)	
+		fileMenu.addAction(self.databaseOpenAction)
+		actionMenu.addAction(self.feedAddAction)
+		actionMenu.addAction(self.feedRemoveAction)
+		actionMenu.addAction(self.pluginAddAction)
+		actionMenu.addAction(self.pluginRemoveAction)
+		actionMenu.addAction(self.feedRefreshAllAction)
 
 		# feedsTab 
 		feedsTab = QWidget()
-		self.feedsTableView = QTableView()
-		self.feedsTableView.setSelectionBehavior(QAbstractItemView.SelectRows)
-		self.feedsTableView.setSelectionMode(QAbstractItemView.SingleSelection)
+		self.feedsTableWidget = QTableWidget(0, 3)
+		self.feedsTableWidget.hideColumn(0)
+		self.feedsTableWidget.setSelectionBehavior(QAbstractItemView.SelectRows)
+		self.feedsTableWidget.setEditTriggers(QAbstractItemView.NoEditTriggers)
+		self.feedsTableWidget.setHorizontalHeaderLabels(["id", "title", "location"])		
+		self.feedsTableWidget.horizontalHeader().setStretchLastSection(True)
 
 		# feedsTab - Layout
 		feedsTabLayout = QVBoxLayout(feedsTab)
-		feedsTabLayout.addWidget(self.feedsTableView)
+		feedsTabLayout.addWidget(self.feedsTableWidget)
 		feedsTab.setLayout(feedsTabLayout)
 
 		# pluginsTab	
@@ -103,85 +121,131 @@ class MainWidget(QMainWindow):
 
 		# Layout
 		self.setCentralWidget(self.tabs)
-		self.setGeometry(300, 300, 250, 150)
+		self.setGeometry(300, 300, 600, 372)
 
 		# Signals
-		self.connect(databaseNewAction, SIGNAL("triggered()"), self.databaseNew)
-		self.connect(databaseOpenAction, SIGNAL("triggered()"), self.databaseOpen)
-		self.connect(feedAddAction, SIGNAL("triggered()"), self.feedAdd)
-		self.connect(feedRefreshAllAction, SIGNAL("triggered()"), self.feedRefreshAll)
+		self.connect(self.databaseNewAction, SIGNAL("triggered()"), self.databaseNew)
+		self.connect(self.databaseOpenAction, SIGNAL("triggered()"), self.databaseOpen)
+		self.connect(self.feedAddAction, SIGNAL("triggered()"), self.feedAdd)
+		self.connect(self.feedRemoveAction, SIGNAL("triggered()"), self.feedRemove)
+		self.connect(self.feedRefreshAllAction, SIGNAL("triggered()"), self.feedRefreshAll)
+		self.connect(self.feedsTableWidget, SIGNAL("itemSelectionChanged()"), self.updateUI)
+		self.connect(self.tabs, SIGNAL("currentChanged(int)"), self.updateUI)
 
-		#self.tableViewUpdate()
+		self.tableWidgetUpdate()
+		self.updateUI()
 		self.show()
 
+	def updateUI(self):
+		if self._databaseIsOpen():
+			self.feedAddAction.setEnabled(True)
+			self.feedRefreshAllAction.setEnabled(True)
+			self.feedRefreshAction.setEnabled(True)
+			if self._onFeedsTab() and self._isAFeedSelected():
+				self.pluginAddAction.setEnabled(True)
+				self.feedRemoveAction.setEnabled(True)
+			else:
+				self.pluginAddAction.setEnabled(False)
+				self.feedRemoveAction.setEnabled(False)
+			if self._onPluginsTab() and self._isAPluginSelected():
+				self.pluginRemoveAction.setEnabled(True)
+			else:
+				self.pluginRemoveAction.setEnabled(False)
+		else:
+			self.feedRemoveAction.setEnabled(False)
+			self.feedAddAction.setEnabled(False)
+			self.feedRemoveAction.setEnabled(False)
+			self.feedRefreshAllAction.setEnabled(False)
+			self.feedRefreshAction.setEnabled(False)
+			self.pluginAddAction.setEnabled(False)
+			self.pluginRemoveAction.setEnabled(False)
 
-	def tableViewUpdate(self):
+	def tableWidgetUpdate(self):
+		self.feedsTableWidget.clearContents()
 		try:
-			for feed in self.feedDB:
-				print(feed['location'])
-				self.tableView.append(feed['location'])
-		except:
-			pass
+			self.feedsTableWidget.setRowCount(len(self.feedDB))
+			for row, feed in enumerate(self.feedDB):
+				idTableWidgetItem = QTableWidgetItem(str(feed['feed_id']))
+				locationTableWidgetItem = QTableWidgetItem(feed['location'])
+				titleTableWidgetItem = QTableWidgetItem(feed['feed'].feed.title)
+				self.feedsTableWidget.setItem(row, 0, idTableWidgetItem)
+				self.feedsTableWidget.setItem(row, 1, titleTableWidgetItem)
+				self.feedsTableWidget.setItem(row, 2, locationTableWidgetItem)
+		except TypeError as e:
+			print(e)
 
 	def feedAdd(self):
-		if self._assertOpenDatabase():
-			location = QInputDialog.getText(self, "Add Feed", "Location")
-			if location:
-				pass
+		location, ok = QInputDialog.getText(self, "Add Feed", "Location")
+		if ok:
+			self.feedDB.add_feed(location)
+			self.tableWidgetUpdate()	
+			self.updateUI()
+
+	def feedRemove(self):
+		ok = QMessageBox.question(self, "Remove feeds?", 
+			"Are you sure you want to remove selected feeds?",
+			"Remove", "Cancel")
+		if ok == 0:
+			selectedModelIndexes = self.feedsTableWidget.selectionModel().selectedRows()
+			for index in selectedModelIndexes:
+				row = index.row()
+				feed_id = self.feedsTableWidget.item(row, 0).text()
+				print(feed_id)
+				self.feedDB.remove_feed_by_id(feed_id)
+				self.tableWidgetUpdate()	
+				self.updateUI()
+
 
 	def feedRefreshAll(self):
-		pass
+		if self._databaseIsOpen():
+			self.feedDB.update_all_feeds()
+
 
 	def databaseOpen(self):
 		filename = QFileDialog.getOpenFileName()
 		if filename:
-			self.feedDB = feedDB(filename)
+			self.feedDB = FeedDB(filename)
+			self.tableWidgetUpdate()	
+			self.updateUI()
 
 	def databaseNew(self):
 		filename = QFileDialog.getSaveFileName()
 		if filename:
-			print(filename)
 			self.feedDB = FeedDB(filename)
+			self.tableWidgetUpdate()	
+			self.updateUI()
 
-	def _assertOpenDatabase(self):
-		if not self.feedDB:
-			QMessageBox.warning(self, "No Open Database",
-				"Open or create a database to continue.", 
-				"Ok")
+	def _databaseIsOpen(self):
+		if self.feedDB is None:
 			return False
 		else:
 			return True
 
+	def _onFeedsTab(self):
+		if self.tabs.currentIndex() == 0:
+			return True
+		else:
+			return False
+
+	def _onPluginsTab(self):
+		if self.tabs.currentIndex() == 1:
+			return True
+		else:
+			return False
+
+	def _isAFeedSelected(self):
+		if len(self.feedsTableWidget.selectedItems()) > 0:
+			return True
+		else:
+			return False
+
+	def _isAPluginSelected(self):
+		return False
+
+
 
 class FeedPropertiesWidget(QWidget):
 	pass
-
-#class AddFeedDialog(QDialog):
-#	def __init__(self, location="", parent=None):
-#		super(AddFeedDialog, self).__init__(parent)
-#
-#		self.location = location
-#
-#		locationLabel = QLabel("Feed &Location")		
-#		self.locationEdit = QLineEdit()
-#		self.locationEdit.setText(self.location)
-#		locationLabel.setBuddy(self.locationEdit)
-#
-#		buttonBox = QDialogButtonBox(QDialogButtonBox.Ok|
-#									 QDialogButtonBox.Cancel)
-#		buttonBox.button(QDialogButtonBox.Ok).setDefault(True)
-#
-#		grid = QGridLayout()
-#		grid.addWidget(locationLabel, 0, 0)
-#		grid.addWidget(self.locationEdit, 0, 1)
-#		grid.addWidget(buttonBox, 1, 0, 1, 5)
-#		self.setLayout(grid)
-#
-#		self.connect(buttonBox, SIGNAL("accepted()"), self, SLOT("accept()"))
-#		self.connect(buttonBox, SIGNAL("reject()"), self, SLOT("reject()"))
-#
-#		self.setWindowTitle("Add Feed")
-
 
 class RemoveFeedDialog(QDialog):
 	def __init__(self, parent=None):
