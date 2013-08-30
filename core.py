@@ -200,6 +200,7 @@ class FeedDB(object):
 
                 cursor.execute('''
                     SELECT feed_id, script, args, kargs
+                    FROM scripts
                     WHERE feed_id == ?
                     ''', str(feed_id) ) 
 
@@ -389,7 +390,7 @@ class FeedDB(object):
     def run_scripts(self, feed_id):
         
         try:  
-            with sqlite3.connect(_database_filename) as self.connection:
+            with sqlite3.connect(self._database_filename) as connection:
                 
                 cursor = connection.cursor()
 
@@ -412,7 +413,7 @@ class FeedDB(object):
         """ Return a string of the sqlite version """
 
         try:
-            with sqlite3.connect(_database_filename) as self.connection:
+            with sqlite3.connect(_database_filename) as connection:
                 
                 cursor = connection.cursor()
                 cursor.execute('SELECT SQLITE_VERSION()')
@@ -466,9 +467,9 @@ class FeedDB(object):
                     else:
                         feed_id, location, feed = t[0], t[1], t[2]
                         d = feedparser.parse(location)
-                        connection.commit()
                         self.update_feed(feed_id, d)
-                        run_scripts(feed_id)
+                        self.run_scripts(feed_id)
+                        connection.commit()
 
         except sqlite3.Error as e:
             logging.debug(debug_info() + str(e.args[0]))
