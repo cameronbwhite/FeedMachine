@@ -192,8 +192,8 @@ class MainWidget(QMainWindow):
 				feed_id = self.feedsTableWidget.item(row, 0).text()
 				print(feed_id)
 				self.feedDB.remove_feed_by_id(feed_id)
-				self.tableWidgetUpdate()	
-				self.updateUI()
+			self.tableWidgetUpdate()	
+			self.updateUI()
 
 
 	def feedRefreshAll(self):
