@@ -460,16 +460,14 @@ class FeedDB(object):
                     SELECT feed_id, location, feed FROM feeds
                     ''')
 
-                while True:
-                    t = cursor.fetchone()
-                    if not t:
-                        break
-                    else:
-                        feed_id, location, feed = t[0], t[1], t[2]
-                        d = feedparser.parse(location)
-                        self.update_feed(feed_id, d)
-                        self.run_scripts(feed_id)
-                        connection.commit()
+                feeds = cursor.fetchall()
+                connection.commit()
+
+            for f in feeds:
+                feed_id, location, feed = f[0], f[1], f[2]
+                d = feedparser.parse(location)
+                self.update_feed(feed_id, d)
+                self.run_scripts(feed_id)
 
         except sqlite3.Error as e:
             logging.debug(debug_info() + str(e.args[0]))
