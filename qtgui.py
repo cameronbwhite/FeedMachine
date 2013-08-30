@@ -61,10 +61,10 @@ class MainWidget(QMainWindow):
 		self.feedRefreshAction.setToolTip("Refresh feed")
 		self.feedRemoveAction = QAction(QIcon("images/remove.png"), "Remove feed", self)
 		self.feedRemoveAction.setToolTip("Remove feed from self.database")
-		self.pluginAddAction = QAction(QIcon("images/pluginAdd.png"), "Add &Plugin", self)
-		self.pluginAddAction.setToolTip("Attach plugin to feed")
-		self.pluginRemoveAction = QAction(QIcon("images/pluginRemove.png"), "Remove Plugin", self)
-		self.pluginRemoveAction.setToolTip("Remove plugin from feed")
+		self.scriptAddAction = QAction(QIcon("images/scriptAdd.png"), "Add &Script", self)
+		self.scriptAddAction.setToolTip("Attach script to feed")
+		self.scriptRemoveAction = QAction(QIcon("images/scriptRemove.png"), "Remove Script", self)
+		self.scriptRemoveAction.setToolTip("Remove script from feed")
 
 		# ToolBar
 		self.toolBar = self.addToolBar('Main')
@@ -73,20 +73,20 @@ class MainWidget(QMainWindow):
 		self.toolBar.addAction(self.databaseNewAction)
 		self.toolBar.addAction(self.feedAddAction)
 		self.toolBar.addAction(self.feedRemoveAction)
-		self.toolBar.addAction(self.pluginAddAction)
-		self.toolBar.addAction(self.pluginRemoveAction)
+		self.toolBar.addAction(self.scriptAddAction)
+		self.toolBar.addAction(self.scriptRemoveAction)
 		self.toolBar.addAction(self.feedRefreshAllAction)
 
 		# Menu
 		menuBar = self.menuBar()
-		fileMenu = 	menuBar.addMenu('&File')
+		fileMenu = menuBar.addMenu('&File')
 		actionMenu = menuBar.addMenu('&Action')
 		fileMenu.addAction(self.databaseNewAction)	
 		fileMenu.addAction(self.databaseOpenAction)
 		actionMenu.addAction(self.feedAddAction)
 		actionMenu.addAction(self.feedRemoveAction)
-		actionMenu.addAction(self.pluginAddAction)
-		actionMenu.addAction(self.pluginRemoveAction)
+		actionMenu.addAction(self.scriptAddAction)
+		actionMenu.addAction(self.scriptRemoveAction)
 		actionMenu.addAction(self.feedRefreshAllAction)
 
 		# feedsTab 
@@ -103,21 +103,21 @@ class MainWidget(QMainWindow):
 		feedsTabLayout.addWidget(self.feedsTableWidget)
 		feedsTab.setLayout(feedsTabLayout)
 
-		# pluginsTab	
-		pluginsTab = QWidget()
-		self.pluginsTableView = QTableView()
-		self.pluginsTableView.setSelectionBehavior(QAbstractItemView.SelectRows)
-		self.pluginsTableView.setSelectionMode(QAbstractItemView.SingleSelection)
+		# scriptsTab	
+		scriptsTab = QWidget()
+		self.scriptsTableView = QTableView()
+		self.scriptsTableView.setSelectionBehavior(QAbstractItemView.SelectRows)
+		self.scriptsTableView.setSelectionMode(QAbstractItemView.SingleSelection)
 
-		# pluginsTab - Layout	
-		pluginsTabLayout = QVBoxLayout(pluginsTab)
-		pluginsTabLayout.addWidget(self.pluginsTableView)
-		pluginsTab.setLayout(pluginsTabLayout)
+		# scriptsTab - Layout	
+		scriptsTabLayout = QVBoxLayout(scriptsTab)
+		scriptsTabLayout.addWidget(self.scriptsTableView)
+		scriptsTab.setLayout(scriptsTabLayout)
 
 		# Tabs
 		self.tabs = QTabWidget()
 		self.tabs.addTab(feedsTab, "Feeds")
-		self.tabs.addTab(pluginsTab, "Plugins")
+		self.tabs.addTab(scriptsTab, "Scripts")
 
 		# Layout
 		self.setCentralWidget(self.tabs)
@@ -142,23 +142,23 @@ class MainWidget(QMainWindow):
 			self.feedRefreshAllAction.setEnabled(True)
 			self.feedRefreshAction.setEnabled(True)
 			if self._onFeedsTab() and self._isAFeedSelected():
-				self.pluginAddAction.setEnabled(True)
+				self.scriptAddAction.setEnabled(True)
 				self.feedRemoveAction.setEnabled(True)
 			else:
-				self.pluginAddAction.setEnabled(False)
+				self.scriptAddAction.setEnabled(False)
 				self.feedRemoveAction.setEnabled(False)
-			if self._onPluginsTab() and self._isAPluginSelected():
-				self.pluginRemoveAction.setEnabled(True)
+			if self._onScriptsTab() and self._isAScriptSelected():
+				self.scriptRemoveAction.setEnabled(True)
 			else:
-				self.pluginRemoveAction.setEnabled(False)
+				self.scriptRemoveAction.setEnabled(False)
 		else:
 			self.feedRemoveAction.setEnabled(False)
 			self.feedAddAction.setEnabled(False)
 			self.feedRemoveAction.setEnabled(False)
 			self.feedRefreshAllAction.setEnabled(False)
 			self.feedRefreshAction.setEnabled(False)
-			self.pluginAddAction.setEnabled(False)
-			self.pluginRemoveAction.setEnabled(False)
+			self.scriptAddAction.setEnabled(False)
+			self.scriptRemoveAction.setEnabled(False)
 
 	def tableWidgetUpdate(self):
 		self.feedsTableWidget.clearContents()
@@ -227,7 +227,7 @@ class MainWidget(QMainWindow):
 		else:
 			return False
 
-	def _onPluginsTab(self):
+	def _onScriptsTab(self):
 		if self.tabs.currentIndex() == 1:
 			return True
 		else:
@@ -239,10 +239,8 @@ class MainWidget(QMainWindow):
 		else:
 			return False
 
-	def _isAPluginSelected(self):
+	def _isAScriptSelected(self):
 		return False
-
-
 
 class FeedPropertiesWidget(QWidget):
 	pass
