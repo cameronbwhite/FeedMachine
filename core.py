@@ -535,6 +535,11 @@ class FeedDB(object):
             logging.debug(debug_info() + str(e.args[0]))
             raise e
 
+class Script(object):
+    @staticmethod
+    def run(feed_data, parsed_entries_guids, **options):
+        raise NotImplementedError
+
 def debug_info():
     return ':' + str(sys._getframe(1).f_code.co_filename) + ':' + \
         str(sys._getframe(1).f_code.co_name) + ':' + \
