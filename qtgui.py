@@ -53,6 +53,8 @@ class MainWidget(QMainWindow):
 		self.databaseNewAction.setToolTip("Create a new database")
 		self.databaseOpenAction = QAction(QIcon("images/databaseOpen.png"), "&Open database", self)
 		self.databaseOpenAction.setToolTip("Open a database")
+		self.databaseSaveAction = QAction(QIcon("images/databaseSave.png"), "Save database", self)
+		self.databaseSaveAction.setToolTip("Save the open database")
 		self.feedAddAction = QAction(QIcon("images/add.png"), "&Add Feed", self)
 		self.feedAddAction.setToolTip("Add a new feed to the self.database")
 		self.feedRefreshAllAction = QAction(QIcon("images/refresh.png"), "&Refresh All", self)
@@ -71,6 +73,7 @@ class MainWidget(QMainWindow):
 		self.toolBar.setMovable(False)
 		self.toolBar.addAction(self.databaseOpenAction)
 		self.toolBar.addAction(self.databaseNewAction)
+		self.toolBar.addAction(self.databaseSaveAction)
 		self.toolBar.addAction(self.feedAddAction)
 		self.toolBar.addAction(self.feedRemoveAction)
 		self.toolBar.addAction(self.scriptAddAction)
@@ -83,6 +86,7 @@ class MainWidget(QMainWindow):
 		actionMenu = menuBar.addMenu('&Action')
 		fileMenu.addAction(self.databaseNewAction)	
 		fileMenu.addAction(self.databaseOpenAction)
+		fileMenu.addAction(self.databaseSaveAction)
 		actionMenu.addAction(self.feedAddAction)
 		actionMenu.addAction(self.feedRemoveAction)
 		actionMenu.addAction(self.scriptAddAction)
@@ -92,7 +96,6 @@ class MainWidget(QMainWindow):
 		# feedsTab 
 		feedsTab = QWidget()
 		self.feedsTableWidget = QTableWidget(0, 3)
-		self.feedsTableWidget.hideColumn(0)
 		self.feedsTableWidget.setSelectionBehavior(QAbstractItemView.SelectRows)
 		self.feedsTableWidget.setEditTriggers(QAbstractItemView.NoEditTriggers)
 		self.feedsTableWidget.setHorizontalHeaderLabels(["id", "title", "location"])		
@@ -105,13 +108,15 @@ class MainWidget(QMainWindow):
 
 		# scriptsTab	
 		scriptsTab = QWidget()
-		self.scriptsTableView = QTableView()
-		self.scriptsTableView.setSelectionBehavior(QAbstractItemView.SelectRows)
-		self.scriptsTableView.setSelectionMode(QAbstractItemView.SingleSelection)
+		self.scriptsTableWidget = QTableWidget(0, 5)
+		self.scriptsTableWidget.setSelectionBehavior(QAbstractItemView.SelectRows)
+		self.scriptsTableWidget.setEditTriggers(QAbstractItemView.NoEditTriggers)
+		self.scriptsTableWidget.setHorizontalHeaderLabels(["Feed Id", "Title", "Script Id", "Script", "Options"])		
+		self.scriptsTableWidget.horizontalHeader().setStretchLastSection(True)
 
 		# scriptsTab - Layout	
 		scriptsTabLayout = QVBoxLayout(scriptsTab)
-		scriptsTabLayout.addWidget(self.scriptsTableView)
+		scriptsTabLayout.addWidget(self.scriptsTableWidget)
 		scriptsTab.setLayout(scriptsTabLayout)
 
 		# Tabs
@@ -126,6 +131,7 @@ class MainWidget(QMainWindow):
 		# Signals
 		self.connect(self.databaseNewAction, SIGNAL("triggered()"), self.databaseNew)
 		self.connect(self.databaseOpenAction, SIGNAL("triggered()"), self.databaseOpen)
+		self.connect(self.databaseSaveAction, SIGNAL("triggered()"), self.databaseSave)
 		self.connect(self.feedAddAction, SIGNAL("triggered()"), self.feedAdd)
 		self.connect(self.feedRemoveAction, SIGNAL("triggered()"), self.feedRemove)
 		self.connect(self.feedRefreshAllAction, SIGNAL("triggered()"), self.feedRefreshAll)
@@ -141,6 +147,7 @@ class MainWidget(QMainWindow):
 			self.feedAddAction.setEnabled(True)
 			self.feedRefreshAllAction.setEnabled(True)
 			self.feedRefreshAction.setEnabled(True)
+			self.databaseSaveAction.setEnabled(True)
 			if self._onFeedsTab() and self._isAFeedSelected():
 				self.scriptAddAction.setEnabled(True)
 				self.feedRemoveAction.setEnabled(True)
@@ -152,6 +159,7 @@ class MainWidget(QMainWindow):
 			else:
 				self.scriptRemoveAction.setEnabled(False)
 		else:
+			self.databaseSaveAction.setEnabled(False)
 			self.feedRemoveAction.setEnabled(False)
 			self.feedAddAction.setEnabled(False)
 			self.feedRemoveAction.setEnabled(False)
@@ -215,6 +223,9 @@ class MainWidget(QMainWindow):
 			self.tableWidgetUpdate()	
 			self.updateUI()
 
+	def databaseSave(self):
+		pass
+
 	def _databaseIsOpen(self):
 		if self.feedDB is None:
 			return False
@@ -250,8 +261,10 @@ class RemoveFeedDialog(QDialog):
 		super(RemoveFeedDialog, self).__init__(parent)
 
 class AddScriptDialog(QDialog):
-	def __init__(self, parent=None):
+	def __init__(self, feedDB, parent=None):
 		super(AddScriptDialog, self).__init__(parent)
+
+		self.feedDB = feedDB
 
 
 def main():
