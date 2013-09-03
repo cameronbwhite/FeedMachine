@@ -24,44 +24,62 @@
 # LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
 # OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
 # SUCH DAMAGE.
-class RssTransmissionDaemon(object):
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 
-	def __init__(self, db, feed_id, *args, **kargs):
+class Script(object):
+    @staticmethod
+    def run(feed_data, parsed_entries_guids, **options):
+        raise NotImplementedError
 
-		self.defaults = {
-			'username' : None,
-			'password' : None,
-			'incomplete_dir' : None,
-			'download_dir' : None,
-			'down_limit' : None,
-			'up_limit' : None,
-			'cache_size' : None,
-			'encryption_usage' : 'preferred',
-			'peer_limit' : None,
-			'port' : 9091,
-			'host' : 127.0.0.1,
-		}
+class transmissionDaemonScript(Script):
 
-		for key in kargs:
-			if key in defaults:
-				self.defaults[key] = kargs[key]
+	_default_options = {
+		'username' : None,
+		'password' : None,
+		'incomplete_dir' : None,
+		'download_dir' : None,
+		'down_limit' : None,
+		'up_limit' : None,
+		'cache_size' : None,
+		'encryption_usage' : 'preferred',
+		'peer_limit' : None,
+		'port' : 9091,
+		'host' : '127.0.0.1',
+	}
 
-		feed = db.get_feed(feed_id)
-		guids = db.get_parsed_entries_guids(feed_id)
+	@staticmethod
+	def run(feed_data, parsed_entries_guids, **options):
 
-		for entry in feed.entries:
-			if not entry.guid in guids:
+		for key in options:
+			if not key in _default_options:
+				raise KeyError
+
+		for key in _default_options:
+			if not key in options:
+				options[key] = _default_options[key]
+
+		for entry in feed_data.entries:
+			if not entry.guid in parsed_entries_guids:
 				for link in entry.links:
 					if link['type'] == 'application/x-bittorrent':
-						self.add_torrent(link['href'])
-				db.set_parsed(feed_id, entry.guid)
+						os.system(create_command(link['href'], options))
 
-	def add_torrent(location):
-		command = 'transmission-remote
-		command += ' ' + self.defaults['host'] if self.defaults['host']
-		command += ' ' + self.defaults['port'] if self.defaults['port']
-		command += ' --auth=' + self.defaults['username'] if self.defaults['username']
-		command += ':' + self.defaults['password'] if self.defaults['password']
-		command += ' --add ' + str(location)
-		command += ' --incomplete-dir ' + self.defaults['incomplete_dir'] if self.defaults['incomplete_dir']
-		command += ' --download-dir ' + self.defaults['download_dir'] if self.defaults['download_dir']
+	@staticmethod
+	def create_command(location, **options):
+		command = 'transmission-remote'
+		if options['host']:
+			command += ' ' + str(options['host'])
+		if options['port']:
+			command += ' ' + str(options['port'])
+		if options['username']:
+			command += ' --auth=' + str(options['username'])
+		if options['password']:
+			command += ':' + str(options['password'])
+		if location:
+			command += ' --add ' + str(location)
+		if options['incomplete-dir']:
+			command += ' --incomplete-dir ' + str(options['incomplete_dir'])
+		if options['download_dir']:
+			command += ' --download-dir ' + str(options['download_dir']) 
+		return command
