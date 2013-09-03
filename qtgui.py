@@ -50,26 +50,56 @@ class MainWidget(QMainWindow):
 		self.setWindowIcon(QIcon('images/feedMachine.png'))
 
 		# Actions
-		self.databaseNewAction = QAction(QIcon("images/databaseAdd.png"), "&New database", self)
-		self.databaseNewAction.setToolTip("Create a new database")
-		self.databaseOpenAction = QAction(QIcon("images/databaseOpen.png"), "&Open database", self)
-		self.databaseOpenAction.setToolTip("Open a database")
-		self.databaseSaveAction = QAction(QIcon("images/databaseSave.png"), "Save database", self)
-		self.databaseSaveAction.setToolTip("Save the open database")
-		self.feedAddAction = QAction(QIcon("images/add.png"), "&Add Feed", self)
-		self.feedAddAction.setToolTip("Add a new feed to the self.database")
-		self.feedRefreshAllAction = QAction(QIcon("images/refresh.png"), "&Refresh All", self)
-		self.feedRefreshAllAction.setToolTip("Refresh all the feeds in the self.database")
-		self.feedRefreshAction = QAction(QIcon("images/refresh.png"), "Refresh", self)
-		self.feedRefreshAction.setToolTip("Refresh feed")
-		self.feedRemoveAction = QAction(QIcon("images/remove.png"), "Remove feed", self)
-		self.feedRemoveAction.setToolTip("Remove feed from self.database")
-		self.scriptAddAction = QAction(QIcon("images/scriptAdd.png"), "Add &Script", self)
-		self.scriptAddAction.setToolTip("Attach script to feed")
-		self.scriptRemoveAction = QAction(QIcon("images/scriptRemove.png"), "Remove Script", self)
-		self.scriptRemoveAction.setToolTip("Remove script from feed")
-		self.scriptPropertiesAction = QAction(QIcon("images/scriptProperties.png"), "Script Properties", self)
-		self.scriptPropertiesAction.setToolTip("Get the script Properties")
+		self.databaseNewAction = QAction(
+			QIcon("images/databaseAdd.png"), 
+			"&New database", self,
+			statusTip="Create a new database",
+			triggered=self.databaseNew)
+		self.databaseOpenAction = QAction(
+			QIcon("images/databaseOpen.png"), 
+			"&Open database", self,
+			statusTip="Open a database",
+			triggered=self.databaseOpen)
+		self.databaseSaveAction = QAction(
+			QIcon("images/databaseSave.png"), 
+			"Save database", self,
+			statusTip="Save the open database",
+			triggered=self.databaseSave)
+		self.feedAddAction = QAction(
+			QIcon("images/add.png"), 
+			"&Add Feed", self,
+			statusTip="Add a feed to the database",
+			triggered=self.feedAdd)
+		self.feedRefreshAllAction = QAction(
+			QIcon("images/refresh.png"), 
+			"&Refresh All", self,
+			statusTip="Refresh all feeds",
+			triggered=self.feedRefreshAll)
+		self.feedRefreshAction = QAction(
+			QIcon("images/refresh.png"), 
+			"Refresh", self,
+			statusTip="Refresh feed",
+			triggered=self.feedRefresh)
+		self.feedRemoveAction = QAction(
+			QIcon("images/remove.png"), 
+			"Remove feed", self,
+			statusTip="Remove feed from the database",
+			triggered=self.feedRemove)
+		self.scriptAddAction = QAction(
+			QIcon("images/scriptAdd.png"), 
+			"Add &Script", self,
+			statusTip="Attach script to feed",
+			triggered=self.scriptAdd)
+		self.scriptRemoveAction = QAction(
+			QIcon("images/scriptRemove.png"), 
+			"Remove Script", self,
+			statusTip="Dettach script from feed",
+			triggered=self.scriptRemove)
+		self.scriptPropertiesAction = QAction(
+			QIcon("images/scriptProperties.png"), 
+			"Script Properties", self,
+			statusTip="Script properties",
+			triggered=self.scriptProperties)
 
 		# ToolBar
 		self.toolBar = self.addToolBar('Main')
@@ -106,6 +136,7 @@ class MainWidget(QMainWindow):
 		self.feedsTableWidget.setEditTriggers(QAbstractItemView.NoEditTriggers)
 		self.feedsTableWidget.setHorizontalHeaderLabels(["id", "title", "location"])		
 		self.feedsTableWidget.horizontalHeader().setStretchLastSection(True)
+		self.feedsTableWidget.itemSelectionChanged.connect(self.updateActions)
 
 		# feedsTab - Layout
 		feedsTabLayout = QVBoxLayout(feedsTab)
@@ -119,6 +150,7 @@ class MainWidget(QMainWindow):
 		self.scriptsTableWidget.setEditTriggers(QAbstractItemView.NoEditTriggers)
 		self.scriptsTableWidget.setHorizontalHeaderLabels(["Feed Id", "Title", "Script Id", "Script", "Options"])		
 		self.scriptsTableWidget.horizontalHeader().setStretchLastSection(True)
+		self.scriptsTableWidget.itemSelectionChanged.connect(self.updateActions)
 
 		# scriptsTab - Layout	
 		scriptsTabLayout = QVBoxLayout(scriptsTab)
@@ -127,26 +159,13 @@ class MainWidget(QMainWindow):
 
 		# Tabs
 		self.tabs = QTabWidget()
+		self.tabs.currentChanged.connect(self.updateActions)
 		self.tabs.addTab(feedsTab, "Feeds")
 		self.tabs.addTab(scriptsTab, "Scripts")
 
 		# Layout
 		self.setCentralWidget(self.tabs)
 		self.setGeometry(300, 300, 600, 372)
-
-		# Signals
-		self.connect(self.databaseNewAction, SIGNAL("triggered()"), self.databaseNew)
-		self.connect(self.databaseOpenAction, SIGNAL("triggered()"), self.databaseOpen)
-		self.connect(self.databaseSaveAction, SIGNAL("triggered()"), self.databaseSave)
-		self.connect(self.feedAddAction, SIGNAL("triggered()"), self.feedAdd)
-		self.connect(self.feedRemoveAction, SIGNAL("triggered()"), self.feedRemove)
-		self.connect(self.feedRefreshAllAction, SIGNAL("triggered()"), self.feedRefreshAll)
-		self.connect(self.scriptAddAction, SIGNAL("triggered()"), self.scriptAdd)
-		self.connect(self.scriptRemoveAction, SIGNAL("triggered()"), self.scriptRemove)
-		self.connect(self.scriptPropertiesAction, SIGNAL("triggered()"), self.scriptProperties)
-		self.connect(self.feedsTableWidget, SIGNAL("itemSelectionChanged()"), self.updateActions)
-		self.connect(self.scriptsTableWidget, SIGNAL("itemSelectionChanged()"), self.updateActions)
-		self.connect(self.tabs, SIGNAL("currentChanged(int)"), self.updateActions)
 
 		self.feedTableWidgetUpdate()
 		self.scriptTableWidgetUpdate()
@@ -237,9 +256,12 @@ class MainWidget(QMainWindow):
 			self.feedTableWidgetUpdate()	
 			self.updateActions()
 
+	def feedRefresh(self):
+		pass
+
 	def feedRefreshAll(self):
 		if self._databaseIsOpen():
-			self.feedDB.update_all_feeds()
+			self.feedDB.update_all_feeds(		)
 
 	def databaseOpen(self):
 		filename = QFileDialog.getOpenFileName()
