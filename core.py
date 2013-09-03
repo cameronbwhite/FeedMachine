@@ -25,12 +25,14 @@
 # OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
 # SUCH DAMAGE.
 #!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 
 import sqlite3
 import feedparser
 import pickle
 import logging
 import sys
+import scripts
 
 class FeedDB(object):
     """Summary of class
@@ -109,7 +111,7 @@ class FeedDB(object):
         else:
             logging.info('Added feed:' + location)
 
-    def add_script(self, feed_id, script, *args, **kargs):
+    def add_script(self, feed_id, script, options):
         """ Attach a script to a feed. 
 
         Long Description
@@ -117,8 +119,7 @@ class FeedDB(object):
         Args:
             feed_id:    The id of feed the attach the script.
             script:   The script that runs/implements the script.
-            args:       The args to pass to the script script.
-            kargs:      The kargs to pass to the script script.
+            options:      The kargs to pass to the script script.
 
         """
         try:    
@@ -126,15 +127,15 @@ class FeedDB(object):
                 
                 cursor = connection.cursor()
 
-                l = [feed_id, script]
-                l.append(pickle.dumps(args) if args else None)   
-                l.append(pickle.dumps(kargs) if kargs else None)   
+                l = [feed_id]
+                l.append(pickle.dumps(script) if script else None)
+                l.append(pickle.dumps(options) if options else None)   
 
                 cursor.execute('''
                     INSERT INTO scripts
-                        (feed_id, script, args, kargs)
+                        (feed_id, script, options)
                     VALUES
-                        (?, ?, ?, ?)
+                        (?, ?, ?)
                     ''', l ) 
 
                 connection.commit()
@@ -181,6 +182,36 @@ class FeedDB(object):
             logging.debug(debug_info() + str(e.args[0]))
             raise e
 
+    def get_all_scripts(self):
+        """ Get all scripts
+
+        Returns:
+            List of all the scripts
+        """
+        try:
+            with sqlite3.connect(self._database_filename) as connection:
+
+                cursor = connection.cursor()
+
+                cursor.execute('''
+                    SELECT script_id, feed_id, script, options
+                    FROM scripts
+                    ''') 
+
+                l = []
+                for i in cursor.fetchall():
+                    l.append({'script_id' : i[0],
+                              'feed_id'   : i[1],
+                              'script'    : pickle.loads(i[2]),
+                              'options'   : pickle.loads(i[3]) if i[3] else None,
+                              })
+
+                return l
+
+        except sqlite3.Error as e:
+            logging.debug(debug_info() + str(e.args[0]))
+            raise e
+
 
     def get_feed_scripts(self, feed_id):
         """ Get a list of scripts attach to the feed.
@@ -199,7 +230,7 @@ class FeedDB(object):
                 cursor = connection.cursor()
 
                 cursor.execute('''
-                    SELECT feed_id, script, args, kargs
+                    SELECT script_id, feed_id, script, options
                     FROM scripts
                     WHERE feed_id == ?
                     ''', str(feed_id) ) 
@@ -207,9 +238,9 @@ class FeedDB(object):
                 l = []
                 for i in cursor.fetchall():
                     l.append({'script_id' : i[0],
-                              'script'    : pickle.loads(i[1]),
-                              'args'      : pickle.loads(i[2]) if i[2] else None,
-                              'kargs'     : pickle.loads(i[3]) if i[3] else None,
+                              'feed_id'   : i[1],
+                              'script'    : pickle.loads(i[2]),
+                              'options'   : pickle.loads(i[3]) if i[3] else None,
                               })
 
                 return l
@@ -399,8 +430,8 @@ class FeedDB(object):
                 for d in scripts:
                     script = d['script']
                     args = d['args']
-                    kargs = d['kargs'] 
-                    script(self, feed_id, args, kargs)
+                    options = d['options'] 
+                    script(self, feed_id, args, options)
 
         except sqlite3.Error as e:
             logging.debug(debug_info() + str(e.args[0]))
@@ -523,8 +554,7 @@ class FeedDB(object):
                         script_id   INTEGER PRIMARY KEY,
                         feed_id     INTEGER,
                         script      BLOB,
-                        args        BLOB,
-                        kargs       BLOB)
+                        options     BLOB)
                     ''')
 
                 logging.debug(debug_info() + 'Created table' + 'feeds')
@@ -535,10 +565,16 @@ class FeedDB(object):
             logging.debug(debug_info() + str(e.args[0]))
             raise e
 
-class Script(object):
-    @staticmethod
-    def run(feed_data, parsed_entries_guids, **options):
-        raise NotImplementedError
+def get_available_scripts():
+    available_scripts = []
+    for i in dir(scripts):
+        obj = eval('scripts.'+i)
+        try:
+            if obj is not scripts.Script and issubclass(obj, scripts.Script):
+                available_scripts.append(obj)
+        except TypeError:
+            pass
+    return available_scripts
 
 def debug_info():
     return ':' + str(sys._getframe(1).f_code.co_filename) + ':' + \
