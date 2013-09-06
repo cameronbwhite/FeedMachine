@@ -33,12 +33,84 @@ import pickle
 import logging
 import sys
 import scripts
+from sqlalchemy import Column, Integer, String, PickleType
+from sqlalchemy import create_engine
+from sqlalchemy import ForeignKey
+from sqlalchemy.orm import relationship, backref, scoped_session, sessionmaker
+from sqlalchemy.ext.declarative import declarative_base
+
+Base = declarative_base()
+Session = scoped_session(sessionmaker())
+engine = None
+
+class Feed(Base):
+    __tablename__ = 'Feeds'
+
+    id = Column(Integer, primary_key=True)
+    location = Column(String)
+    data = Column(PickleType)
+
+    oldEntries = relationship('OldEntry')
+    scripts = relationship('Script')
+
+    def __init__(self, location, data):
+        self.location = location        
+        self.data = data
+
+    def __repr__(self):
+        return '<Feed({}, {})>'.\
+            format(self.id, self.location)
+
+    def update(self):
+        self.data = feedparser.parse(self.location)
+        Session.commit()
+
+    def attachScript(self, script):
+        self.scripts.append(script)
+        Session.commit()
+
+    def getAllOldGuids(self):
+        oldGuids = []
+        for oldEntry in self.oldEntries:
+            oldGuids.append(oldEntry.guid)
+        return oldGuids
+
+    def addOldGuid(self, guid):
+        self.oldEntries.append(OldEntry(guid))
+        Session.commit()
+
+class OldEntry(Base):
+    __tablename__ = 'OldEntries'
+
+    id = Column(Integer, primary_key=True)
+    feed_id = Column(Integer, ForeignKey(Feed.id))
+    guid = Column(String)
+
+    def __init__(self, guid):
+        self.guid = guid
+
+    def __repr__(self):
+        return '<OldEntry({}, {})>'.\
+            format(self.feed_id, self.guid)
+
+class Script(Base):
+    __tablename__ = 'Scripts'
+
+    id = Column(Integer, primary_key=True)
+    feed_id = Column(Integer, ForeignKey(Feed.id))
+    script = Column(PickleType)
+    options = Column(PickleType)
+
+    def __init__(self, script, options):
+        self.script = script
+        self.options = options
+
+    def __repr__(self):
+        return '<Script({}, {}, {}>'.\
+            format(self.feed_id, self.script, self.options)
 
 class FeedDB(object):
     """Summary of class
-
-    Longer class information...
-    Longer class information...
 
     Attributes:
         _database_filename:
@@ -51,542 +123,56 @@ class FeedDB(object):
         Args:
             database_filename: Filename of SQL database.
         """
+        global engine
         self._database_filename = database_filename
-        self._create_tables()
-
-    def __iter__(self):
-        """ docstring for getFeed """
-
-        feeds = self.get_all_feeds()
-
-        for i in feeds:
-            yield i
+        engine = create_engine(
+            'sqlite:///{}'.format(self._database_filename))
+        Session.configure(bind=engine, autoflush=False, expire_on_commit=False)
+        Base.metadata.create_all(engine)
 
     def __len__(self):
         """ Return the number of feeds """
+        return Session.query(Feed).count()
 
-        try:
-            with sqlite3.connect(self._database_filename) as connection:
-                cursor = connection.cursor()
-                cursor.execute('''SELECT COUNT(*) FROM feeds''')
-                return cursor.fetchone()[0]
+    def addFeed(self, location):
+        """ Add a feed """
+        data = feedparser.parse(location)
+        Session.add(Feed(location, data))
+        Session.commit()
 
-        except sqlite3.Error as e:
-            logging.debug(debug_info() + str(e.args[0]))
-            raise e
+    def getFeedById(self, feed_id):
+        """ Get the feed by id """
+        return Session.query(Feed).\
+            filter(Feed.id==feed_id).\
+            one()
 
-    def add_feed(self, location):
-        """ Add a feed
+    def getAllFeeds(self):
+        """ Return a list of all the feeds. """
+        return Session.query(Feed).order_by(Feed.id).all()
 
-        Args:
-            location: The url or file of the feed
+    def scriptGetById(self, script_id):
+        return Session.query(Script).\
+            filter(Script.id == script_id).\
+            one()
 
-        """
-
-        try: 
-            with sqlite3.connect(self._database_filename) as connection:
-
-                cursor = connection.cursor()
-
-                d = feedparser.parse(location)
-
-                cursor.execute('''
-                    INSERT INTO feeds 
-                        (location, feed) 
-                    VALUES 
-                        (?, ?)
-                    ''', 
-                        (location, pickle.dumps(d))
-                    ) 
-
-                connection.commit()
-
-        except sqlite3.IntegrityError:
-            logging.info('Feed already exists: {}'.format(location))
-
-        except sqlite3.Error as e:
-            logging.debug(debug_info() + str(e.args[0]))
-            raise e
-
-        else:
-            logging.info('Added feed: {}'.format(location))
-
-    def add_script(self, feed_id, script, options):
-        """ Attach a script to a feed. 
-
-        Long Description
-
-        Args:
-            feed_id:    The id of feed the attach the script.
-            script:   The script that runs/implements the script.
-            options:      The kargs to pass to the script script.
-
-        """
-        try:    
-            with sqlite3.connect(self._database_filename) as connection:
-                
-                cursor = connection.cursor()
-
-                l = [feed_id]
-                l.append(pickle.dumps(script) if script else None)
-                l.append(pickle.dumps(options) if options else None)   
-
-                cursor.execute('''
-                    INSERT INTO scripts
-                        (feed_id, script, options)
-                    VALUES
-                        (?, ?, ?)
-                    ''', l ) 
-
-                connection.commit()
-
-        except sqlite3.Error as e:
-            logging.debug(debug_info() + str(e.args[0]))
-            raise e
-
-        else:
-            logging.info('Added script ({}) to {}'.format(
-                str(script.__name__), str(feed_id)))
-
-    def get_all_feeds(self):
-        """ Return a list of all the feeds.
-
-        Returns:
-            The returned list contains a tuple for every feed.
-            The first item in the tuple is the feed's id, the
-            second item is the location (url/filename) of the
-            feed, and the last item is the parsed feed.
-
-        """
-
-        try: 
-            with sqlite3.connect(self._database_filename) as connection:
-
-                cursor = connection.cursor()
-
-                cursor.execute('''
-                    SELECT feed_id, location, feed FROM feeds
-                    ''')
-                
-                rows = cursor.fetchall() 
-
-                l = []
-                for r in rows:
-                    l.append({'feed_id'  : r[0],
-                              'location' : r[1],
-                              'feed'     : pickle.loads(r[2])
-                             })
-
-                return l
-
-        except sqlite3.Error as e:
-            logging.debug(debug_info() + str(e.args[0]))
-            raise e
-
-    def get_all_scripts(self):
+    def getAllScripts(self):
         """ Get all scripts
 
         Returns:
             List of all the scripts
         """
-        try:
-            with sqlite3.connect(self._database_filename) as connection:
+        return Session.query(Script).order_by(Script.id).all()
 
-                cursor = connection.cursor()
+    def getAllOldEntries(self):
+        """ get a list all the old entries """
+        return Session.query(OldEntry).all()
 
-                cursor.execute('''
-                    SELECT script_id, feed_id, script, options
-                    FROM scripts
-                    ''') 
-
-                l = []
-                for i in cursor.fetchall():
-                    l.append({'script_id' : i[0],
-                              'feed_id'   : i[1],
-                              'script'    : pickle.loads(i[2]),
-                              'options'   : pickle.loads(i[3]) if i[3] else None,
-                              })
-
-                return l
-
-        except sqlite3.Error as e:
-            logging.debug(debug_info() + str(e.args[0]))
-            raise e
-
-
-    def get_feed_scripts(self, feed_id):
-        """ Get a list of scripts attach to the feed.
-
-        Args:
-            feed_id: The id of the feed.
-
-        Returns:
-           List of the scripts. 
-
-        """
-
-        try:
-            with sqlite3.connect(self._database_filename) as connection:
-
-                cursor = connection.cursor()
-
-                cursor.execute('''
-                    SELECT script_id, feed_id, script, options
-                    FROM scripts
-                    WHERE feed_id == ?
-                    ''', str(feed_id) ) 
-
-                l = []
-                for i in cursor.fetchall():
-                    l.append({'script_id' : i[0],
-                              'feed_id'   : i[1],
-                              'script'    : pickle.loads(i[2]),
-                              'options'   : pickle.loads(i[3]) if i[3] else None,
-                              })
-
-                return l
-
-        except sqlite3.Error as e:
-            logging.debug(debug_info() + str(e.args[0]))
-            raise e
-
-    def get_feed(self, feed_id):
-
-        try:
-            with sqlite3.connect(self._database_filename) as connection:
-
-                cursor = connection.cursor()
-
-                cursor.execute('''
-                    SELECT feed_id, location, feed
-                    FROM feeds
-                    WHERE feed_id == ?
-                    ''', str(feed_id) )
-
-                t = cursor.fetchone()
-
-                return {'feed_id'  : t[0],
-                        'location' : t[1],
-                        'feed'     : pickle.loads(t[2])
-                        }
-
-        except sqlite3.Error as e:
-            logging.debug(debug_info() + str(e.args[0]))
-            raise e
-
-        except TypeError:
-            return None
-
-    def get_parsed_entries_guids(self, feed_id):
-        """ get a list of parsed entries guids for the feed.
-
-        Args:
-            feed_id: The id of the feed.
-
-        Returns:
-            A list of parsed entries guids.
-
-        """
-
-        try:
-            with sqlite3.connect(self._database_filename) as connection:
-
-                cursor = connection.cursor()
-
-                cursor.execute('''
-                    SELECT guid FROM parsed_feeds WHERE feed_id == ?
-                    ''', str(feed_id))
-
-                l = []
-                for i in cursor.fetchall():
-                    l.append(i[0]) 
-
-                return l
-
-        except sqlite3.Error as e:
-            logging.debug(debug_info() + str(e.args[0]))
-            raise e
-
-    def get_script(self, script_id):
-        """ Get the script by the script_id
-
-        Args:
-            script_id: The id of the script
-
-        Returns:
-            Get the script
-        """
-        try:
-            with sqlite3.connect(self._database_filename) as connection:
-
-                cursor = connection.cursor()
-
-                cursor.execute('''
-                    SELECT script_id, feed_id, script, options
-                    FROM scripts
-                    WHERE script_id == ?
-                    ''', str(script_id))
-
-                i = cursor.fetchone()
-                return {'script_id' : i[0],
-                        'feed_id'   : i[1],
-                        'script'    : pickle.loads(i[2]),
-                        'options'   : pickle.loads(i[3])}
-
-        except sqlite3.Error as e:
-            logging.debug(debug_info() + str(e.args[0]))
-            raise e
-
-    def remove_feed_by_id(self, feed_id):
-        """ summary of remove_feed_by_id 
-
-        Args:
-            feed_id:    The id of the feed.
-
-        Raises:
-
-        """
-
-        try:
-            with sqlite3.connect(self._database_filename) as connection:
-
-                cursor = connection.cursor()
-
-                cursor.execute('''
-                    DELETE FROM feeds
-                    WHERE feed_id == ?
-                    ''', str(feed_id) )
-
-                logging.debug("{}Deleted feed ({}) from feeds".format(
-                    debug_info(), feed_id))
-
-                cursor.execute('''
-                    DELETE FROM parsed_feeds
-                    WHERE feed_id == ?
-                    ''', str(feed_id) )
-
-                logging.debug('{}Deleted feed ({}) from parsed_feeds'.format(
-                    debug_info(), feed_id))
-
-                cursor.execute('''
-                    DELETE FROM scripts
-                    WHERE feed_id == ?
-                    ''', str(feed_id) )
-
-                logging.debug('{}Deleted feed ({}) from scripts'.format(
-                    debug_info(), feed_id))
-
-                connection.commit()
-
-        except sqlite3.Error as e:
-            logging.debug(debug_info() + str(e.args[0]))
-            raise e
-
-    def remove_script_by_id(self, script_id):
-        """ remove a script by its id.
-
-        Args:
-            script_id: The id of the script
-
-        """
-
-        try:
-            with sqlite3.connect(self._database_filename) as connection:
-                
-                cursor = connection.cursor()
-
-                cursor.execute('''
-                    DELETE FROM scripts
-                    WHERE script_id == ?
-                    ''', str(script_id) )
-
-                connection.commit()
-
-        except sqlite3.Error as e:
-            logging.debug(debug_info() + str(e.args[0]))
-            raise e
-
-    def set_parsed(self, feed_id, guid):
-        """ Set a entry in a feed as parsed.
-
-        Args:
-            feed_id:    The id of the feed.
-            guid:       The guid of a entry in the feed.
-
-        """
-
-        try:
-            with sqlite3.connect(self._database_filename) as connection:
-                
-                cursor = connection.cursor()
-
-                cursor.execute('''
-                    INSERT INTO parsed_feeds 
-                        (feed_id, guid)
-                    VALUES (?, ?)
-                    ''', (feed_id, guid) )
-
-                connection.commit()
-
-        except sqlite3.IntegrityError:
-            logging.info('feed ({}) guid ({}) is already parsed'.format(
-                str(feed_id), str(guid)))
-
-        except sqlite3.Error as e:
-            logging.debug(debug_info() + str(e.args[0]))
-            raise e
-
-    def set_all_guids_parsed(self, feed_id):
-        """ Set all guids in feed as parsed
-
-        Args:
-            feed_id: The id of the feed
-        """
-
-        feed
-
-    def run_scripts(self, feed_id):
-        
-        try:  
-            scripts = self.get_feed_scripts(feed_id)
-            guids = self.get_parsed_entries_guids(feed_id)
-            feed = self.get_feed(feed_id)
-            feed_data = feed['feed']
-
-            for d in scripts:
-                script = d['script']
-                options = d['options'] 
-                script.run(feed_data, guids, options)
-
-        except KeyError:
-            pass
-
-    def sqlite_version(self):
-        """ Return a string of the sqlite version """
-
-        try:
-            with sqlite3.connect(_database_filename) as connection:
-                
-                cursor = connection.cursor()
-                cursor.execute('SELECT SQLITE_VERSION()')
-                return cursor.fetchone()[0]
-
-        except sqlite3.Error as e:
-            logging.debug(debug_info() + str(e.args[0]))
-            raise e
-
-    def unset_parsed(self, feed_id, guid):
-        """ Unset a entry in a feed as parsed.
-
-        Args:
-            feed_id:    The id of the feed.
-            guid:       The guid of a entry in the feed.
-
-        """
-
-        try: 
-            with sqlite3.connect(self._database_filename) as connection:
-                
-                cursor = connection.cursor()
-
-                cursor.execute('''
-                    DELETE FROM parsed_feeds
-                    WHERE feed_id == ? AND guid == ?
-                    ''', (str(feed_id), str(guid)) )
-
-                connection.commit()
-
-        except sqlite3.Error as e:
-            logging.debug(debug_info() + str(e.args[0]))
-            raise e
-
-    def update_all_feeds(self):
+    def updateAll(self):
         """ update all feeds """
-
-        try: 
-            with sqlite3.connect(self._database_filename) as connection:
-                
-                cursor = connection.cursor()
-
-                cursor.execute('''
-                    SELECT feed_id, location, feed FROM feeds
-                    ''')
-
-                feeds = cursor.fetchall()
-
-        except sqlite3.Error as e:
-            logging.debug(debug_info() + str(e.args[0]))
-            raise e
-
-        for f in feeds:
-            feed_id, location, feed = f[0], f[1], f[2]
-            d = feedparser.parse(location)
-            self.update_feed(feed_id, d)
-            self.run_scripts(feed_id)
-
-    def update_feed(self, feed_id, new_feed):
-
-        try: 
-            with sqlite3.connect(self._database_filename) as connection:
-                
-                cursor = connection.cursor()
-
-                cursor.execute('''
-                    UPDATE feeds
-                    SET feed = ?
-                    WHERE feed_id == ?
-                    ''', (pickle.dumps(new_feed), str(feed_id)))
-
-                connection.commit()
-
-        except sqlite3.Error as e:
-            logging.debug(debug_info() + str(e.args[0]))
-            raise e
-
-    def _create_tables(self):
-        """ Create all the sqlite tables. """
-
-        try:
-            with sqlite3.connect(self._database_filename) as connection:
-                
-                cursor = connection.cursor()
-
-                cursor.execute('''
-                    CREATE TABLE IF NOT EXISTS feeds (
-                        feed_id     INTEGER PRIMARY KEY, 
-                        location    TEXT UNIQUE,
-                        feed        BLOB)
-                    ''')
-
-                logging.debug('{}Created table: feeds'.format(
-                    debug_info()))
-
-                cursor.execute('''
-                    CREATE TABLE IF NOT EXISTS parsed_feeds (
-                        parsed_feeds_id INTEGER PRIMARY KEY,
-                        feed_id         INTEGER,
-                        guid            TEXT UNIQUE)
-                    ''')
-
-                logging.debug('{}Created table: parsed_feeds'.format(
-                    debug_info()))
-
-                cursor.execute('''
-                    CREATE TABLE IF NOT EXISTS scripts (
-                        script_id   INTEGER PRIMARY KEY,
-                        feed_id     INTEGER,
-                        script      BLOB,
-                        options     BLOB)
-                    ''')
-
-                logging.debug('{}Created table: feeds'.format(
-                    debug_info()))
-
-                connection.commit()
-
-        except sqlite3.Error as e:
-            logging.debug(debug_info() + str(e.args[0]))
-            raise e
+        for feed in self.feedsGetAll():
+            feed.update()
+            self.feedRunAll(feed_id)
+        Session.commit()
 
 def get_available_scripts():
     available_scripts = []
