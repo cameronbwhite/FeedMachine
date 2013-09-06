@@ -68,7 +68,7 @@ class FeedDB(object):
         try:
             with sqlite3.connect(self._database_filename) as connection:
                 cursor = connection.cursor()
-                cursor.execute('SELECT COUNT(*) FROM feeds')
+                cursor.execute('''SELECT COUNT(*) FROM feeds''')
                 return cursor.fetchone()[0]
 
         except sqlite3.Error as e:
@@ -102,14 +102,14 @@ class FeedDB(object):
                 connection.commit()
 
         except sqlite3.IntegrityError:
-            logging.info('Feed already exists: ' + location)
+            logging.info('Feed already exists: {}'.format(location))
 
         except sqlite3.Error as e:
             logging.debug(debug_info() + str(e.args[0]))
             raise e
 
         else:
-            logging.info('Added feed:' + location)
+            logging.info('Added feed: {}'.format(location))
 
     def add_script(self, feed_id, script, options):
         """ Attach a script to a feed. 
@@ -145,7 +145,8 @@ class FeedDB(object):
             raise e
 
         else:
-            logging.info('Added script ' + str(script.__name__) + ' to ' + str(feed_id))
+            logging.info('Added script ({}) to {}'.format(
+                str(script.__name__), str(feed_id)))
 
     def get_all_feeds(self):
         """ Return a list of all the feeds.
@@ -249,9 +250,7 @@ class FeedDB(object):
             logging.debug(debug_info() + str(e.args[0]))
             raise e
 
-
     def get_feed(self, feed_id):
-
 
         try:
             with sqlite3.connect(self._database_filename) as connection:
@@ -308,15 +307,35 @@ class FeedDB(object):
             logging.debug(debug_info() + str(e.args[0]))
             raise e
 
-    # TODO: Remove     
-    def print_feed_list(self):
+    def get_script(self, script_id):
+        """ Get the script by the script_id
 
-        for feed in self:
+        Args:
+            script_id: The id of the script
 
-            print('feed_id:' + str(feed['feed_id']))
-            print('\t' + 'Title: ' + str(feed['feed'].feed.title))
-            print('\t' + 'Location: ' + str(feed['location']))
-            print('\t' + 'Description: ' + str(feed['feed'].feed.description))
+        Returns:
+            Get the script
+        """
+        try:
+            with sqlite3.connect(self._database_filename) as connection:
+
+                cursor = connection.cursor()
+
+                cursor.execute('''
+                    SELECT script_id, feed_id, script, options
+                    FROM scripts
+                    WHERE script_id == ?
+                    ''', str(script_id))
+
+                i = cursor.fetchone()
+                return {'script_id' : i[0],
+                        'feed_id'   : i[1],
+                        'script'    : pickle.loads(i[2]),
+                        'options'   : pickle.loads(i[3])}
+
+        except sqlite3.Error as e:
+            logging.debug(debug_info() + str(e.args[0]))
+            raise e
 
     def remove_feed_by_id(self, feed_id):
         """ summary of remove_feed_by_id 
@@ -338,24 +357,24 @@ class FeedDB(object):
                     WHERE feed_id == ?
                     ''', str(feed_id) )
 
-                logging.debug(debug_info() + 'Deleted feed (' + \
-                              feed_id + ' from feeds')
+                logging.debug("{}Deleted feed ({}) from feeds".format(
+                    debug_info(), feed_id))
 
                 cursor.execute('''
                     DELETE FROM parsed_feeds
                     WHERE feed_id == ?
                     ''', str(feed_id) )
 
-                logging.debug(debug_info() + 'Deleted feed (' + \
-                              feed_id + ' from parsed_feeds')
+                logging.debug('{}Deleted feed ({}) from parsed_feeds'.format(
+                    debug_info(), feed_id))
 
                 cursor.execute('''
                     DELETE FROM scripts
                     WHERE feed_id == ?
                     ''', str(feed_id) )
 
-                logging.debug(debug_info() + 'Deleted feed (' + \
-                              feed_id + ' from scripts')
+                logging.debug('{}Deleted feed ({}) from scripts'.format(
+                    debug_info(), feed_id))
 
                 connection.commit()
 
@@ -410,32 +429,34 @@ class FeedDB(object):
                 connection.commit()
 
         except sqlite3.IntegrityError:
-            logging.info('feed (' + str(feed_id) + ') guid (' + str(guid) + 
-                         ') is already set as parsed.')
+            logging.info('feed ({}) guid ({}) is already parsed'.format(
+                str(feed_id), str(guid)))
 
         except sqlite3.Error as e:
             logging.debug(debug_info() + str(e.args[0]))
             raise e
 
+    def set_all_guids_parsed(self, feed_id):
+        """ Set all guids in feed as parsed
+
+        Args:
+            feed_id: The id of the feed
+        """
+
+        feed
 
     def run_scripts(self, feed_id):
         
         try:  
-            with sqlite3.connect(self._database_filename) as connection:
-                
-                cursor = connection.cursor()
+            scripts = self.get_feed_scripts(feed_id)
+            guids = self.get_parsed_entries_guids(feed_id)
+            feed = self.get_feed(feed_id)
+            feed_data = feed['feed']
 
-                scripts = self.get_feed_scripts(feed_id)
-
-                for d in scripts:
-                    script = d['script']
-                    args = d['args']
-                    options = d['options'] 
-                    script(self, feed_id, args, options)
-
-        except sqlite3.Error as e:
-            logging.debug(debug_info() + str(e.args[0]))
-            raise e
+            for d in scripts:
+                script = d['script']
+                options = d['options'] 
+                script.run(feed_data, guids, options)
 
         except KeyError:
             pass
@@ -492,17 +513,16 @@ class FeedDB(object):
                     ''')
 
                 feeds = cursor.fetchall()
-                connection.commit()
-
-            for f in feeds:
-                feed_id, location, feed = f[0], f[1], f[2]
-                d = feedparser.parse(location)
-                self.update_feed(feed_id, d)
-                self.run_scripts(feed_id)
 
         except sqlite3.Error as e:
             logging.debug(debug_info() + str(e.args[0]))
             raise e
+
+        for f in feeds:
+            feed_id, location, feed = f[0], f[1], f[2]
+            d = feedparser.parse(location)
+            self.update_feed(feed_id, d)
+            self.run_scripts(feed_id)
 
     def update_feed(self, feed_id, new_feed):
 
@@ -538,7 +558,8 @@ class FeedDB(object):
                         feed        BLOB)
                     ''')
 
-                logging.debug(debug_info() + 'Created table:' + 'feeds')
+                logging.debug('{}Created table: feeds'.format(
+                    debug_info()))
 
                 cursor.execute('''
                     CREATE TABLE IF NOT EXISTS parsed_feeds (
@@ -547,7 +568,8 @@ class FeedDB(object):
                         guid            TEXT UNIQUE)
                     ''')
 
-                logging.debug(debug_info() + 'Created table:' + 'parsed_feeds')
+                logging.debug('{}Created table: parsed_feeds'.format(
+                    debug_info()))
 
                 cursor.execute('''
                     CREATE TABLE IF NOT EXISTS scripts (
@@ -557,7 +579,8 @@ class FeedDB(object):
                         options     BLOB)
                     ''')
 
-                logging.debug(debug_info() + 'Created table' + 'feeds')
+                logging.debug('{}Created table: feeds'.format(
+                    debug_info()))
 
                 connection.commit()
 
