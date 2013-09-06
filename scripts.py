@@ -49,7 +49,7 @@ class transmissionDaemonScript(Script):
 	}
 
 	@staticmethod
-	def run(feed_data, parsed_entries_guids, **options):
+	def run(feed_data, parsed_entries_guids, options):
 
 		for key in options:
 			if not key in _default_options:
@@ -66,7 +66,7 @@ class transmissionDaemonScript(Script):
 						os.system(create_command(link['href'], options))
 
 	@staticmethod
-	def create_command(location, **options):
+	def create_command(location, options):
 		command = 'transmission-remote'
 		if options['host']:
 			command += ' ' + str(options['host'])
