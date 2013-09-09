@@ -27,12 +27,14 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
+import os
+
 class Runnable(object):
     @staticmethod
     def run(feed_data, parsed_entries_guids, **options):
         raise NotImplementedError
 
-class transmissionDaemonScript(Runnable):
+class TransmissionDaemonScript(Runnable):
 
 	_default_options = {
 		'username' : None,
@@ -49,21 +51,25 @@ class transmissionDaemonScript(Runnable):
 	}
 
 	@staticmethod
-	def run(feed_data, parsed_entries_guids, options):
+	def run(feed, options):
 
 		for key in options:
-			if not key in _default_options:
+			if not key in TransmissionDaemonScript._default_options:
 				raise KeyError
 
-		for key in _default_options:
+		for key in TransmissionDaemonScript._default_options:
 			if not key in options:
-				options[key] = _default_options[key]
+				options[key] = TransmissionDaemonScript._default_options[key]
 
-		for entry in feed_data.entries:
-			if not entry.guid in parsed_entries_guids:
+		guids = feed.getOldGuids()
+
+		for entry in feed.data.entries:
+			if not entry.guid in guids:
 				for link in entry.links:
 					if link['type'] == 'application/x-bittorrent':
-						os.system(create_command(link['href'], options))
+						os.system(
+							TransmissionDaemonScript.\
+								create_command(link['href'], options))
 
 	@staticmethod
 	def create_command(location, options):
@@ -78,8 +84,8 @@ class transmissionDaemonScript(Runnable):
 			command += ':' + str(options['password'])
 		if location:
 			command += ' --add ' + str(location)
-		if options['incomplete-dir']:
-			command += ' --incomplete-dir ' + str(options['incomplete_dir'])
+		if options['incomplete_dir']:
+			command += ' --incomplete_dir ' + str(options['incomplete_dir'])
 		if options['download_dir']:
 			command += ' --download-dir ' + str(options['download_dir']) 
 		return command
