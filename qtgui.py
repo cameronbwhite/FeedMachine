@@ -296,11 +296,7 @@ class MainWidget(QMainWindow):
 
 	def feedUpdateAll(self):
 		if self._databaseIsOpen():
-			feeds = self.feedDB.getAllFeeds()
-			for feed in feeds:
-				feed.update()
-				feed.runAll()
-				feed.setAllOld()
+			self.feedDB.updateAndRunAll()
 
 	def scriptAdd(self):
 		dialog = ScriptAddDialog(self)

@@ -250,6 +250,13 @@ class FeedDB(object):
         for feed in self.getAllFeeds():
             feed.update()
 
+    def updateAndRunAll(self):
+        for feed in self.getAllFeeds():
+            feed.update()
+            feed.runAll()
+            feed.setAllOld()
+
+
 def debug_info():
     return ':' + str(sys._getframe(1).f_code.co_filename) + ':' + \
         str(sys._getframe(1).f_code.co_name) + ':' + \
