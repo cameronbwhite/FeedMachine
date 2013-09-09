@@ -29,10 +29,8 @@
 
 import sqlite3
 import feedparser
-import pickle
-import logging
-import sys
 import scripts
+from config import *
 from sqlalchemy import Column, Integer, String, PickleType
 from sqlalchemy import create_engine
 from sqlalchemy import ForeignKey
@@ -42,10 +40,6 @@ from sqlalchemy.ext.declarative import declarative_base
 Base = declarative_base()
 Session = scoped_session(sessionmaker())
 engine = None
-
-installedScripts = {
-    'transmissionDaemonScript': scripts.transmissionDaemonScript
-}
 
 class Feed(Base):
     __tablename__ = 'Feeds'
@@ -75,16 +69,24 @@ class Feed(Base):
         Session.commit()
 
     def addOldGuid(self, guid):
-        self.oldEntries.append(OldEntry(guid))
-        Session.commit()
+        if not self.isGuidOld(guid):
+            self.oldEntries.append(OldEntry(guid))
+            Session.commit()
 
-    def getAllOldGuids(self):
+    def getOldGuids(self):
         oldGuids = []
         for oldEntry in self.oldEntries:
             oldGuids.append(oldEntry.guid)
         return oldGuids
 
-    def setAllOld():
+    def isGuidOld(self, guid):
+        guids = self.getOldGuids()
+        if guid in guids:
+            return True
+        else:
+            return False
+
+    def setAllOld(self):
         for entry in self.data.entries:
             self.addOldGuid(entry.guid)
 
@@ -95,7 +97,6 @@ class Feed(Base):
          
     def update(self):
         self.data = feedparser.parse(self.location)
-        self.runAll()
         Session.commit()
 
 class OldEntry(Base):
@@ -246,7 +247,7 @@ class FeedDB(object):
 
     def updateAll(self):
         """ update all feeds """
-        for feed in self.feedsGetAll():
+        for feed in self.getAllFeeds():
             feed.update()
 
 def debug_info():
