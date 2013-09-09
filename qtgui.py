@@ -30,6 +30,7 @@
 import os
 import platform
 import sys
+import scripts
 from functools import partial
 from PyQt4.QtGui import *
 from PyQt4.QtCore import *
@@ -38,68 +39,89 @@ from core import *
 class MainWidget(QMainWindow):
 
 	def __init__(self, feedDB=None, parent=None):
-		super(MainWidget, self).__init__(parent)
+		super(MainWidget, self).__init__(
+			parent,
+			windowTitle='FeedMachine',
+			windowIcon=QIcon('images/feedMachine.png'),
+			geometry=QRect(300, 300, 600, 372))
 
 		self.feedDB = feedDB
 
-		self.initUI()
-
-	def initUI(self):
-
-		self.setWindowTitle('FeedMachine')
-		self.setWindowIcon(QIcon('images/feedMachine.png'))
-
 		# Actions
+
 		self.databaseNewAction = QAction(
 			QIcon("images/databaseAdd.png"), 
 			"&New database", self,
-			statusTip="Create a new database",
-			triggered=self.databaseNew)
+			statusTip="Create a new database")
+		self.databaseNewAction.triggered.connect(self.databaseNew)
+		self.databaseNewAction.triggered.connect(self.feedTableWidgetUpdate)
+		self.databaseNewAction.triggered.connect(self.scriptTableWidgetUpdate)
+		self.databaseNewAction.triggered.connect(self.actionsUpdate)
+
 		self.databaseOpenAction = QAction(
 			QIcon("images/databaseOpen.png"), 
 			"&Open database", self,
-			statusTip="Open a database",
-			triggered=self.databaseOpen)
+			statusTip="Open a database")
+		self.databaseOpenAction.triggered.connect(self.databaseOpen)
+		self.databaseOpenAction.triggered.connect(self.feedTableWidgetUpdate)
+		self.databaseOpenAction.triggered.connect(self.scriptTableWidgetUpdate)
+		self.databaseOpenAction.triggered.connect(self.actionsUpdate)
+
 		self.databaseSaveAction = QAction(
 			QIcon("images/databaseSave.png"), 
 			"Save database", self,
 			statusTip="Save the open database",
 			triggered=self.databaseSave)
+
 		self.feedAddAction = QAction(
 			QIcon("images/add.png"), 
 			"&Add Feed", self,
-			statusTip="Add a feed to the database",
-			triggered=self.feedAdd)
-		self.feedRefreshAllAction = QAction(
-			QIcon("images/refresh.png"), 
-			"&Refresh All", self,
-			statusTip="Refresh all feeds",
-			triggered=self.feedRefreshAll)
-		self.feedRefreshAction = QAction(
-			QIcon("images/refresh.png"), 
-			"Refresh", self,
-			statusTip="Refresh feed",
-			triggered=self.feedRefresh)
+			statusTip="Add a feed to the database")
+		self.feedAddAction.triggered.connect(self.feedAdd)
+		self.feedAddAction.triggered.connect(self.feedTableWidgetUpdate)
+
+		self.feedUpdateAllAction = QAction(
+			QIcon("images/update.png"), 
+			"&Update All", self,
+			statusTip="Update all feeds")
+		self.feedUpdateAllAction.triggered.connect(self.feedUpdateAll)
+		self.feedUpdateAllAction.triggered.connect(self.feedTableWidgetUpdate)
+
+		self.feedUpdateAction = QAction(
+			QIcon("images/update.png"), 
+			"Update", self,
+			statusTip="Update feed")
+		self.feedUpdateAction.triggered.connect(self.feedUpdate)
+		self.feedUpdateAction.triggered.connect(self.feedTableWidgetUpdate)
+
 		self.feedRemoveAction = QAction(
 			QIcon("images/remove.png"), 
 			"Remove feed", self,
-			statusTip="Remove feed from the database",
-			triggered=self.feedRemove)
+			statusTip="Remove feed from the database")
+		self.feedRemoveAction.triggered.connect(self.feedRemove)
+		self.feedRemoveAction.triggered.connect(self.feedTableWidgetUpdate)
+		self.feedRemoveAction.triggered.connect(self.scriptTableWidgetUpdate)
+
 		self.scriptAddAction = QAction(
 			QIcon("images/scriptAdd.png"), 
 			"Add &Script", self,
-			statusTip="Attach script to feed",
-			triggered=self.scriptAdd)
+			statusTip="Attach script to feed")
+		self.scriptAddAction.triggered.connect(self.scriptAdd)
+		self.scriptAddAction.triggered.connect(self.scriptTableWidgetUpdate)
+
 		self.scriptRemoveAction = QAction(
 			QIcon("images/scriptRemove.png"), 
 			"Remove Script", self,
-			statusTip="Dettach script from feed",
-			triggered=self.scriptRemove)
+			statusTip="Dettach script from feed")
+		self.scriptRemoveAction.triggered.connect(self.scriptRemove)
+		self.scriptRemoveAction.triggered.connect(self.feedTableWidgetUpdate)
+		self.scriptRemoveAction.triggered.connect(self.scriptTableWidgetUpdate)
+
 		self.scriptPropertiesAction = QAction(
 			QIcon("images/scriptProperties.png"), 
 			"Script Properties", self,
-			statusTip="Script properties",
-			triggered=self.scriptProperties)
+			statusTip="Script properties")
+		self.scriptPropertiesAction.triggered.connect(self.scriptProperties)
 
 		# ToolBar
 		self.toolBar = self.addToolBar('Main')
@@ -113,7 +135,7 @@ class MainWidget(QMainWindow):
 		self.toolBar.addAction(self.scriptAddAction)
 		self.toolBar.addAction(self.scriptRemoveAction)
 		self.toolBar.addAction(self.scriptPropertiesAction)
-		self.toolBar.addAction(self.feedRefreshAllAction)
+		self.toolBar.addAction(self.feedUpdateAllAction)
 
 		# Menu
 		menuBar = self.menuBar()
@@ -126,17 +148,17 @@ class MainWidget(QMainWindow):
 		actionMenu.addAction(self.feedRemoveAction)
 		actionMenu.addAction(self.scriptAddAction)
 		actionMenu.addAction(self.scriptRemoveAction)
-		actionMenu.addAction(self.feedRefreshAllAction)
+		actionMenu.addAction(self.feedUpdateAllAction)
 		actionMenu.addAction(self.scriptPropertiesAction)
 
 		# feedsTab 
 		feedsTab = QWidget()
-		self.feedsTableWidget = QTableWidget(0, 3)
-		self.feedsTableWidget.setSelectionBehavior(QAbstractItemView.SelectRows)
-		self.feedsTableWidget.setEditTriggers(QAbstractItemView.NoEditTriggers)
+		self.feedsTableWidget = QTableWidget(0, 3,
+			selectionBehavior = QAbstractItemView.SelectRows,
+			editTriggers = QAbstractItemView.NoEditTriggers,
+			itemSelectionChanged = self.actionsUpdate)
 		self.feedsTableWidget.setHorizontalHeaderLabels(["id", "title", "location"])		
 		self.feedsTableWidget.horizontalHeader().setStretchLastSection(True)
-		self.feedsTableWidget.itemSelectionChanged.connect(self.updateActions)
 
 		# feedsTab - Layout
 		feedsTabLayout = QVBoxLayout(feedsTab)
@@ -145,38 +167,52 @@ class MainWidget(QMainWindow):
 
 		# scriptsTab	
 		scriptsTab = QWidget()
-		self.scriptsTableWidget = QTableWidget(0, 5)
-		self.scriptsTableWidget.setSelectionBehavior(QAbstractItemView.SelectRows)
-		self.scriptsTableWidget.setEditTriggers(QAbstractItemView.NoEditTriggers)
+		self.scriptsTableWidget = QTableWidget(0, 5,
+			selectionBehavior = QAbstractItemView.SelectRows,
+			editTriggers = QAbstractItemView.NoEditTriggers,
+			itemSelectionChanged = self.actionsUpdate)
 		self.scriptsTableWidget.setHorizontalHeaderLabels(["Feed Id", "Title", "Script Id", "Script", "Options"])		
 		self.scriptsTableWidget.horizontalHeader().setStretchLastSection(True)
-		self.scriptsTableWidget.itemSelectionChanged.connect(self.updateActions)
 
 		# scriptsTab - Layout	
 		scriptsTabLayout = QVBoxLayout(scriptsTab)
 		scriptsTabLayout.addWidget(self.scriptsTableWidget)
 		scriptsTab.setLayout(scriptsTabLayout)
 
-		# Tabs
+		# Tab Widget
 		self.tabs = QTabWidget()
-		self.tabs.currentChanged.connect(self.updateActions)
+		self.tabs.currentChanged.connect(self.actionsUpdate)
+		self.tabs.currentChanged.connect(self.feedTableWidgetUpdate)
+		self.tabs.currentChanged.connect(self.scriptTableWidgetUpdate)
 		self.tabs.addTab(feedsTab, "Feeds")
 		self.tabs.addTab(scriptsTab, "Scripts")
 
 		# Layout
 		self.setCentralWidget(self.tabs)
-		self.setGeometry(300, 300, 600, 372)
 
 		self.feedTableWidgetUpdate()
 		self.scriptTableWidgetUpdate()
-		self.updateActions()
+		self.actionsUpdate()
 		self.show()
 
-	def updateActions(self):
+	def databaseOpen(self):
+		filename = QFileDialog.getOpenFileName()
+		if filename:
+			self.feedDB = FeedDB(filename)
+
+	def databaseNew(self):
+		filename = QFileDialog.getSaveFileName()
+		if filename:
+			self.feedDB = FeedDB(filename)
+
+	def databaseSave(self):
+		pass
+
+	def actionsUpdate(self):
 		if self._databaseIsOpen():
 			self.feedAddAction.setEnabled(True)
-			self.feedRefreshAllAction.setEnabled(True)
-			self.feedRefreshAction.setEnabled(True)
+			self.feedUpdateAllAction.setEnabled(True)
+			self.feedUpdateAction.setEnabled(True)
 			self.databaseSaveAction.setEnabled(True)
 			if self._onFeedsTab() and self._isAFeedSelected():
 				self.scriptAddAction.setEnabled(True)
@@ -195,130 +231,103 @@ class MainWidget(QMainWindow):
 			self.feedRemoveAction.setEnabled(False)
 			self.feedAddAction.setEnabled(False)
 			self.feedRemoveAction.setEnabled(False)
-			self.feedRefreshAllAction.setEnabled(False)
-			self.feedRefreshAction.setEnabled(False)
+			self.feedUpdateAllAction.setEnabled(False)
+			self.feedUpdateAction.setEnabled(False)
 			self.scriptAddAction.setEnabled(False)
 			self.scriptRemoveAction.setEnabled(False)
 			self.scriptPropertiesAction.setEnabled(False)
 
 	def feedTableWidgetUpdate(self):
 		self.feedsTableWidget.clearContents()
-		try:
-			self.feedsTableWidget.setRowCount(len(self.feedDB))
-			for row, feed in enumerate(self.feedDB):
-				idTableWidgetItem = QTableWidgetItem(str(feed['feed_id']))
-				locationTableWidgetItem = QTableWidgetItem(feed['location'])
-				titleTableWidgetItem = QTableWidgetItem(feed['feed'].feed.title)
-				self.feedsTableWidget.setItem(row, 0, idTableWidgetItem)
-				self.feedsTableWidget.setItem(row, 1, titleTableWidgetItem)
-				self.feedsTableWidget.setItem(row, 2, locationTableWidgetItem)
-		except TypeError as e:
-			print(e)
+		if not self.feedDB:
+			return
+		self.feedsTableWidget.setRowCount(len(self.feedDB))
+		for row, feed in enumerate(self.feedDB.getAllFeeds()):
+			idTableWidgetItem = QTableWidgetItem(str(feed.id))
+			locationTableWidgetItem = QTableWidgetItem(str(feed.location))
+			titleTableWidgetItem = QTableWidgetItem(str(feed.data.feed.title))
+			self.feedsTableWidget.setItem(row, 0, idTableWidgetItem)
+			self.feedsTableWidget.setItem(row, 1, titleTableWidgetItem)
+			self.feedsTableWidget.setItem(row, 2, locationTableWidgetItem)
 
 	def scriptTableWidgetUpdate(self):
+		if not self.feedDB:
+			return
 		self.scriptsTableWidget.clearContents()
-		try:
-			scripts = self.feedDB.get_all_scripts()
-			self.scriptsTableWidget.setRowCount(len(scripts))
-			for row, script in enumerate(scripts):
-				scriptIdTableWidgetItem = QTableWidgetItem(str(script['script_id']))
-				scriptNameTableWidgetItem = QTableWidgetItem(str(script['script'].__name__))
-				feedIdTableWidgetItem = QTableWidgetItem(str(script['feed_id']))
-				feedNameTableWidgetItem = QTableWidgetItem("TODO")
-				optionsTableWidgetItem = QTableWidgetItem(str(script['options']))
-				self.scriptsTableWidget.setItem(row, 0, feedIdTableWidgetItem)
-				self.scriptsTableWidget.setItem(row, 1, feedNameTableWidgetItem)
-				self.scriptsTableWidget.setItem(row, 2, scriptIdTableWidgetItem)
-				self.scriptsTableWidget.setItem(row, 3, scriptNameTableWidgetItem)
-				self.scriptsTableWidget.setItem(row, 4, optionsTableWidgetItem)
-		except TypeError as e:
-			print(e)
-		except AttributeError as e:
-			print(e)
+		scripts = self.feedDB.getAllScripts()
+		self.scriptsTableWidget.setRowCount(len(scripts))
+		for row, script in enumerate(scripts):
+			feed = self.feedDB.getFeedById(script.feedId)
+			scriptIdTableWidgetItem = QTableWidgetItem(str(script.id))
+			scriptNameTableWidgetItem = QTableWidgetItem(str(script.name))
+			feedIdTableWidgetItem = QTableWidgetItem(str(script.feedId))
+			feedNameTableWidgetItem = QTableWidgetItem(str(feed.data.feed.title))
+			optionsTableWidgetItem = QTableWidgetItem(str(script.options))
+			self.scriptsTableWidget.setItem(row, 0, feedIdTableWidgetItem)
+			self.scriptsTableWidget.setItem(row, 1, feedNameTableWidgetItem)
+			self.scriptsTableWidget.setItem(row, 2, scriptIdTableWidgetItem)
+			self.scriptsTableWidget.setItem(row, 3, scriptNameTableWidgetItem)
+			self.scriptsTableWidget.setItem(row, 4, optionsTableWidgetItem)
 
 	def feedAdd(self):
 		location, ok = QInputDialog.getText(self, "Add Feed", "Location")
 		if ok:
-			self.feedDB.add_feed(location)
-			self.feedTableWidgetUpdate()	
-			self.updateActions()
+			self.feedDB.addFeed(location)
 
 	def feedRemove(self):
 		ok = QMessageBox.question(self, "Remove feeds?", 
 			"Are you sure you want to remove selected feeds?",
 			"Remove", "Cancel")
 		if ok == 0:
-			selectedModelIndexes = self.feedsTableWidget.selectionModel().selectedRows()
-			for index in selectedModelIndexes:
-				row = index.row()
-				feed_id = self.feedsTableWidget.item(row, 0).text()
-				self.feedDB.remove_feed_by_id(feed_id)
-			self.feedTableWidgetUpdate()	
-			self.updateActions()
+			for row in self._selectedFeedRows():
+				feedId = self.feedsTableWidget.item(row, 0).text()
+				feed = self.feedDB.getFeedById(feedId)
+				self.feedDB.removeFeed(feed)
 
-	def feedRefresh(self):
+	def feedUpdate(self):
 		pass
 
-	def feedRefreshAll(self):
+	def feedUpdateAll(self):
 		if self._databaseIsOpen():
-			self.feedDB.update_all_feeds(		)
-
-	def databaseOpen(self):
-		filename = QFileDialog.getOpenFileName()
-		if filename:
-			self.feedDB = FeedDB(filename)
-			self.feedTableWidgetUpdate()	
-			self.scriptTableWidgetUpdate()
-			self.updateActions()
-
-	def databaseNew(self):
-		filename = QFileDialog.getSaveFileName()
-		if filename:
-			self.feedDB = FeedDB(filename)
-			self.feedTableWidgetUpdate()	
-			self.scriptTableWidgetUpdate()
-			self.updateActions()
-
-	def databaseSave(self):
-		pass
+			self.feedDB.updateAll()
 
 	def scriptAdd(self):
-		dialog = ScriptAddDialog(self.feedDB, self)
+		dialog = ScriptAddDialog(self)
 		if dialog.exec_():
 			options = dialog.options
-			script = dialog.script
-			selectedModelIndexes = self.feedsTableWidget.selectionModel().selectedRows()
-			for index in selectedModelIndexes:
-				row = index.row()
-				feed_id = self.feedsTableWidget.item(row, 0).text()
-				self.feedDB.add_script(feed_id, script, options)
-			self.feedTableWidgetUpdate()	
-			self.scriptTableWidgetUpdate()
-			self.updateActions()
+			scriptName = dialog.scriptName
+			for row in self._selectedFeedRows():
+				feedId = self.feedsTableWidget.item(row, 0).text()
+				feed = self.feedDB.getFeedById(feedId)
+				feed.attachScript(scriptName, options)
 
 	def scriptRemove(self):
 		ok = QMessageBox.question(self, "Remove Scripts?", 
 			"Are you sure you want to remove selected scripts?",
 			"Remove", "Cancel")
 		if ok == 0:
-			selectedModelIndexes = self.scriptsTableWidget.selectionModel().selectedRows()
-			for index in selectedModelIndexes:
-				row = index.row()
+			for row in self._selectedScriptRows():
 				script_id = self.scriptsTableWidget.item(row, 2).text()
-				self.feedDB.remove_script_by_id(script_id)
-			self.scriptTableWidgetUpdate()	
-			self.updateActions()
+				self.feedDB.removeScriptById(script_id)
 
 	def scriptProperties(self):
-		selectedModelIndexes = self.scriptsTableWidget.selectionModel().selectedRows()
-		for index in selectedModelIndexes:
-			row = index.row()
-			feed_id = self.scriptsTableWidget.item(row, 0).text()
-			script_id = self.scriptsTableWidget.item(row, 2).text()
-			script_name = self.scriptsTableWidget.item(row, 3).text()
-			options = eval(self.scriptsTableWidget.item(row, 4).text())
-			dialog = ScriptPropertiesDialog(script_name, options)
+		for row in self._selectedScriptRows():
+			scriptId = self.scriptsTableWidget.item(row, 2).text()
+			script = self.feedDB.getScriptById(scriptId)
+			dialog = ScriptPropertiesDialog(script)
 			dialog.exec_()
+
+	def _selectedFeedRows(self):
+		selectedModelIndexes = \
+			self.feedsTableWidget.selectionModel().selectedRows()
+		for index in selectedModelIndexes:
+			yield index.row()
+
+	def _selectedScriptRows(self):
+		selectedModelIndexes = \
+			self.scriptsTableWidget.selectionModel().selectedRows()
+		for index in selectedModelIndexes:
+			yield index.row()
 
 	def _databaseIsOpen(self):
 		if self.feedDB is None:
@@ -351,26 +360,25 @@ class MainWidget(QMainWindow):
 			return False
 
 class ScriptAddDialog(QDialog):
-	def __init__(self, feedDB, parent=None):
-		super(ScriptAddDialog, self).__init__(parent)
-
-		self.feedDB = feedDB
-		self.optionWidgetLayouts = []
-		self.optionWidgetPartials = []
-		self.available_scripts = get_available_scripts()
+	def __init__(self, parent=None):
+		super(ScriptAddDialog, self).__init__(
+			parent,
+			windowTitle="Add Script")
 
 		# ComboBox
-		self.comboBox = QComboBox(self)
-		for script in self.available_scripts:
-			self.comboBox.addItem(script.__name__)
+		self.comboBox = QComboBox(
+			self, activated=self.changeScript)
+		for scriptName in installedScripts:
+			self.comboBox.addItem(scriptName)
 
 		# Form
 		self.form = QFormLayout()
 		self.form.addRow(self.comboBox)
 
 		# ButtonBox
-		buttonBox = QDialogButtonBox(QDialogButtonBox.Ok| 
-									 QDialogButtonBox.Cancel)
+		buttonBox = QDialogButtonBox(
+			QDialogButtonBox.Ok | QDialogButtonBox.Cancel,
+			accepted=self.accept, rejected=self.reject)
 
 		# Layout
 		self.mainLayout = QVBoxLayout()
@@ -378,16 +386,11 @@ class ScriptAddDialog(QDialog):
 		self.mainLayout.addWidget(buttonBox)
 		self.setLayout(self.mainLayout)
 
-		# Signals
-		self.connect(self.comboBox, SIGNAL('activated(int)'), self.changeScript)
-		self.connect(buttonBox, SIGNAL('accepted()'), self, SLOT('accept()'))
-		self.connect(buttonBox, SIGNAL('rejected()'), self, SLOT('reject()'))
-
-		self.comboBox.emit(SIGNAL('activated(int)'), 0)
+		self.comboBox.activated.emit(0)
 
 	def changeScript(self, index):
-		currentText = self.comboBox.currentText()
-		self.script = self.getScriptFromName(currentText)
+		self.scriptName = self.comboBox.currentText()
+		self.script = installedScripts[self.scriptName]
 		self.options = self.script._default_options.copy()
 		self.removeAllOptionWidgets()
 		self.createAllOptionWidgets()
@@ -395,20 +398,16 @@ class ScriptAddDialog(QDialog):
 	def createAllOptionWidgets(self):
 		for key in self.options:
 			# Create widgets
-			lineEdit = QLineEdit()
+			lineEdit = QLineEdit(textChanged=self.changedOption)
 			if self.options[key]:
 				lineEdit.setText(str(self.options[key]))
 			# Create layout
 			self.form.addRow(key, lineEdit)
-			# Signals
-			self.connect(lineEdit, SIGNAL('textChanged(const QString&)'), self.changedOption)
 
 	def removeAllOptionWidgets(self):
 		rowCount = self.form.rowCount()
 		for i in range(1, rowCount):
 			self.form.itemAt(i).deleteLater()
-		self.optionWidgetLayouts = []
-		self.optionWidgetPartials = []
 
 	def changedOption(self, newText):
 		lineEdit = self.sender()
@@ -417,37 +416,33 @@ class ScriptAddDialog(QDialog):
 		text = lineEdit.text()
 		self.options[key] = text
 
-	def getScriptFromName(self, name):
-		for script in self.available_scripts:
-			if script.__name__ == name:
-				return script
-
 class ScriptPropertiesDialog(QDialog):
-	def __init__(self, scriptName, options, parent=None):
-		super(ScriptPropertiesDialog, self).__init__(parent)
+	def __init__(self, script, parent=None):
+		super(ScriptPropertiesDialog, self).__init__(
+			parent,
+			windowTitle="Script Properties")
 
 		# Form
 		form = QFormLayout()
-		form.addRow("Script", QLabel(scriptName))
+		form.addRow("Script", QLabel(script.name))
 
 		# Add each option to the form
-		for i, key in enumerate(options):
+		for option in script.options:
 			lineEdit = QLineEdit()
-			lineEdit.setText(str(options[key]))
+			lineEdit.setText(str(option.value))
 			lineEdit.setReadOnly(True)
-			form.addRow(key, lineEdit)
+			form.addRow(option.name, lineEdit)
 
-		buttonBox = QDialogButtonBox(QDialogButtonBox.Ok)
-
-		# Signals
-		self.connect(buttonBox, SIGNAL('accepted()'), self, SLOT('accept()'))
+		# Create the button box
+		buttonBox = QDialogButtonBox(
+			QDialogButtonBox.Ok,
+			accepted=self.accept)
 
 		# Layout
 		layout = QVBoxLayout()
 		layout.addLayout(form)
 		layout.addWidget(buttonBox)
 		self.setLayout(layout)
-
 
 def main():
 	app = QApplication(sys.argv)
