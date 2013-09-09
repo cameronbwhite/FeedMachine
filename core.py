@@ -43,30 +43,39 @@ Base = declarative_base()
 Session = scoped_session(sessionmaker())
 engine = None
 
+installedScripts = {
+    'transmissionDaemonScript': scripts.transmissionDaemonScript
+}
+
 class Feed(Base):
     __tablename__ = 'Feeds'
 
     id = Column(Integer, primary_key=True)
-    location = Column(String)
+    location = Column(String, unique=True)
     data = Column(PickleType)
 
-    oldEntries = relationship('OldEntry')
-    scripts = relationship('Script')
+    oldEntries = relationship(
+        'OldEntry', backref="feed",
+        cascade="all, delete, delete-orphan")
+    scripts = relationship(
+        'Script', backref="feed",
+        cascade="all, delete, delete-orphan")
 
     def __init__(self, location, data):
         self.location = location        
         self.data = data
+        Session.commit()
 
     def __repr__(self):
         return '<Feed({}, {})>'.\
             format(self.id, self.location)
 
-    def update(self):
-        self.data = feedparser.parse(self.location)
+    def attachScript(self, name, options):
+        self.scripts.append(Script(name, options))
         Session.commit()
 
-    def attachScript(self, script):
-        self.scripts.append(script)
+    def addOldGuid(self, guid):
+        self.oldEntries.append(OldEntry(guid))
         Session.commit()
 
     def getAllOldGuids(self):
@@ -75,39 +84,90 @@ class Feed(Base):
             oldGuids.append(oldEntry.guid)
         return oldGuids
 
-    def addOldGuid(self, guid):
-        self.oldEntries.append(OldEntry(guid))
+    def setAllOld():
+        for entry in self.data.entries:
+            self.addOldGuid(entry.guid)
+
+    def runAll(self):
+        for script in self.scripts:
+            script.run()
+        self.setAllOld()
+         
+    def update(self):
+        self.data = feedparser.parse(self.location)
+        self.runAll()
         Session.commit()
 
 class OldEntry(Base):
     __tablename__ = 'OldEntries'
 
     id = Column(Integer, primary_key=True)
-    feed_id = Column(Integer, ForeignKey(Feed.id))
-    guid = Column(String)
+    feedId = Column(Integer, ForeignKey(Feed.id))
+    guid = Column(String, unique=True)
 
     def __init__(self, guid):
         self.guid = guid
+        Session.commit()
 
     def __repr__(self):
         return '<OldEntry({}, {})>'.\
-            format(self.feed_id, self.guid)
+            format(self.feedId, self.guid)
 
 class Script(Base):
     __tablename__ = 'Scripts'
 
     id = Column(Integer, primary_key=True)
-    feed_id = Column(Integer, ForeignKey(Feed.id))
-    script = Column(PickleType)
-    options = Column(PickleType)
+    feedId = Column(Integer, ForeignKey(Feed.id))
+    name = Column(String)
+    options = relationship(
+        'Option', cascade="all, delete, delete-orphan")
 
-    def __init__(self, script, options):
-        self.script = script
-        self.options = options
+    def __init__(self, name, options):
+        self.name = name
+        self.setOptions(options) 
+        Session.commit()
 
     def __repr__(self):
         return '<Script({}, {}, {}>'.\
-            format(self.feed_id, self.script, self.options)
+            format(self.feedId, self.name, self.options)
+
+    def getScript(self):
+            return installedScripts[self.name]
+
+    def setOptions(self, options):
+        script = self.getScript()
+        for key in options:
+            if not key in script._default_options:
+                raise KeyError
+            self.options.append(Option(key, options[key]))             
+        Session.commit()
+
+    def getOptions(self):
+        options = {}
+        for option in self.options:
+            options[option.name] = option.value
+        return options
+
+    def run(self):
+        script = self.getScript()
+        script.run(self.feed, self.getOptions())
+
+class Option(Base):
+    __tablename__ = 'Options'
+
+    id = Column(Integer, primary_key=True)
+    script_id = Column(Integer, ForeignKey(Script.id))
+    name = Column(String)
+    value = Column(String)
+
+    def __init__(self, name, value):
+        self.name = name
+        self.value = value
+        Session.commit()
+
+    def __repr__(self):
+        return '<Option({}={})>'.\
+            format(self.name, self.value)
 
 class FeedDB(object):
     """Summary of class
@@ -129,6 +189,7 @@ class FeedDB(object):
             'sqlite:///{}'.format(self._database_filename))
         Session.configure(bind=engine, autoflush=False, expire_on_commit=False)
         Base.metadata.create_all(engine)
+        Session.commit()
 
     def __len__(self):
         """ Return the number of feeds """
@@ -140,50 +201,53 @@ class FeedDB(object):
         Session.add(Feed(location, data))
         Session.commit()
 
-    def getFeedById(self, feed_id):
-        """ Get the feed by id """
-        return Session.query(Feed).\
-            filter(Feed.id==feed_id).\
-            one()
-
     def getAllFeeds(self):
-        """ Return a list of all the feeds. """
+        """ Return a list of all the feeds """
         return Session.query(Feed).order_by(Feed.id).all()
 
-    def scriptGetById(self, script_id):
+    def getAllScripts(self):
+        """ Get list of all scripts """
+        return Session.query(Script).order_by(Script.id).all()
+
+    def getAllOldEntries(self):
+        """ Get list all the old entries """
+        return Session.query(OldEntry).all()
+
+    def getFeedById(self, feedId):
+        """ Get the feed by its id """
+        return Session.query(Feed).\
+            filter(Feed.id==feedId).\
+            one()
+
+    def getScriptById(self, script_id):
+        """ Get the script by its id """
         return Session.query(Script).\
             filter(Script.id == script_id).\
             one()
 
-    def getAllScripts(self):
-        """ Get all scripts
+    def removeFeed(self, feed):
+        """ Remove the feed from the database """
+        Session.delete(feed)
+        Session.commit()
 
-        Returns:
-            List of all the scripts
-        """
-        return Session.query(Script).order_by(Script.id).all()
+    def removeFeedById(self, feedId):
+        """ Remove the feed from the database """
+        feed = self.getFeedById(feedId)
+        self.removeFeed(feedId)
 
-    def getAllOldEntries(self):
-        """ get a list all the old entries """
-        return Session.query(OldEntry).all()
+    def removeScript(self, script):
+        Session.delete(script)
+        Session.commit()
+
+    def removeScriptById(self, scriptId):
+        """ Remove the script from the database """
+        script = self.getScriptById(scriptId)
+        self.removeScript(script)
 
     def updateAll(self):
         """ update all feeds """
         for feed in self.feedsGetAll():
             feed.update()
-            self.feedRunAll(feed_id)
-        Session.commit()
-
-def get_available_scripts():
-    available_scripts = []
-    for i in dir(scripts):
-        obj = eval('scripts.'+i)
-        try:
-            if obj is not scripts.Script and issubclass(obj, scripts.Script):
-                available_scripts.append(obj)
-        except TypeError:
-            pass
-    return available_scripts
 
 def debug_info():
     return ':' + str(sys._getframe(1).f_code.co_filename) + ':' + \
