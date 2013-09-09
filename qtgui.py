@@ -31,6 +31,7 @@ import os
 import platform
 import sys
 import scripts
+from config import *
 from functools import partial
 from PyQt4.QtGui import *
 from PyQt4.QtCore import *
@@ -157,7 +158,7 @@ class MainWidget(QMainWindow):
 			selectionBehavior = QAbstractItemView.SelectRows,
 			editTriggers = QAbstractItemView.NoEditTriggers,
 			itemSelectionChanged = self.actionsUpdate)
-		self.feedsTableWidget.setHorizontalHeaderLabels(["id", "title", "location"])		
+		self.feedsTableWidget.setHorizontalHeaderLabels(["title", "id", "location"])		
 		self.feedsTableWidget.horizontalHeader().setStretchLastSection(True)
 
 		# feedsTab - Layout
@@ -171,7 +172,7 @@ class MainWidget(QMainWindow):
 			selectionBehavior = QAbstractItemView.SelectRows,
 			editTriggers = QAbstractItemView.NoEditTriggers,
 			itemSelectionChanged = self.actionsUpdate)
-		self.scriptsTableWidget.setHorizontalHeaderLabels(["Feed Id", "Title", "Script Id", "Script", "Options"])		
+		self.scriptsTableWidget.setHorizontalHeaderLabels(["Title", "Id", "Script", "Id", "Options"])		
 		self.scriptsTableWidget.horizontalHeader().setStretchLastSection(True)
 
 		# scriptsTab - Layout	
@@ -246,9 +247,12 @@ class MainWidget(QMainWindow):
 			idTableWidgetItem = QTableWidgetItem(str(feed.id))
 			locationTableWidgetItem = QTableWidgetItem(str(feed.location))
 			titleTableWidgetItem = QTableWidgetItem(str(feed.data.feed.title))
-			self.feedsTableWidget.setItem(row, 0, idTableWidgetItem)
-			self.feedsTableWidget.setItem(row, 1, titleTableWidgetItem)
+			self.feedsTableWidget.setItem(row, 0, titleTableWidgetItem)
+			self.feedsTableWidget.setItem(row, 1, idTableWidgetItem)
 			self.feedsTableWidget.setItem(row, 2, locationTableWidgetItem)
+		for i in range(self.feedsTableWidget.columnCount()-1):
+			self.feedsTableWidget.resizeColumnToContents(i)
+		self.feedsTableWidget.resizeRowsToContents()
 
 	def scriptTableWidgetUpdate(self):
 		if not self.feedDB:
@@ -262,12 +266,15 @@ class MainWidget(QMainWindow):
 			scriptNameTableWidgetItem = QTableWidgetItem(str(script.name))
 			feedIdTableWidgetItem = QTableWidgetItem(str(script.feedId))
 			feedNameTableWidgetItem = QTableWidgetItem(str(feed.data.feed.title))
-			optionsTableWidgetItem = QTableWidgetItem(str(script.options))
-			self.scriptsTableWidget.setItem(row, 0, feedIdTableWidgetItem)
-			self.scriptsTableWidget.setItem(row, 1, feedNameTableWidgetItem)
-			self.scriptsTableWidget.setItem(row, 2, scriptIdTableWidgetItem)
-			self.scriptsTableWidget.setItem(row, 3, scriptNameTableWidgetItem)
+			optionsTableWidgetItem = QTableWidgetItem(str(script.getOptions()))
+			self.scriptsTableWidget.setItem(row, 0, feedNameTableWidgetItem)
+			self.scriptsTableWidget.setItem(row, 1, feedIdTableWidgetItem)
+			self.scriptsTableWidget.setItem(row, 2, scriptNameTableWidgetItem)
+			self.scriptsTableWidget.setItem(row, 3, scriptIdTableWidgetItem)
 			self.scriptsTableWidget.setItem(row, 4, optionsTableWidgetItem)
+		for i in range(self.scriptsTableWidget.columnCount()-1):
+			self.scriptsTableWidget.resizeColumnToContents(i)
+		self.scriptsTableWidget.resizeRowsToContents()
 
 	def feedAdd(self):
 		location, ok = QInputDialog.getText(self, "Add Feed", "Location")
@@ -280,7 +287,7 @@ class MainWidget(QMainWindow):
 			"Remove", "Cancel")
 		if ok == 0:
 			for row in self._selectedFeedRows():
-				feedId = self.feedsTableWidget.item(row, 0).text()
+				feedId = self.feedsTableWidget.item(row, 1).text()
 				feed = self.feedDB.getFeedById(feedId)
 				self.feedDB.removeFeed(feed)
 
@@ -289,7 +296,11 @@ class MainWidget(QMainWindow):
 
 	def feedUpdateAll(self):
 		if self._databaseIsOpen():
-			self.feedDB.updateAll()
+			feeds = self.feedDB.getAllFeeds()
+			for feed in feeds:
+				feed.update()
+				feed.runAll()
+				feed.setAllOld()
 
 	def scriptAdd(self):
 		dialog = ScriptAddDialog(self)
@@ -297,7 +308,7 @@ class MainWidget(QMainWindow):
 			options = dialog.options
 			scriptName = dialog.scriptName
 			for row in self._selectedFeedRows():
-				feedId = self.feedsTableWidget.item(row, 0).text()
+				feedId = self.feedsTableWidget.item(row, 1).text()
 				feed = self.feedDB.getFeedById(feedId)
 				feed.attachScript(scriptName, options)
 
@@ -307,12 +318,12 @@ class MainWidget(QMainWindow):
 			"Remove", "Cancel")
 		if ok == 0:
 			for row in self._selectedScriptRows():
-				script_id = self.scriptsTableWidget.item(row, 2).text()
+				script_id = self.scriptsTableWidget.item(row, 3).text()
 				self.feedDB.removeScriptById(script_id)
 
 	def scriptProperties(self):
 		for row in self._selectedScriptRows():
-			scriptId = self.scriptsTableWidget.item(row, 2).text()
+			scriptId = self.scriptsTableWidget.item(row, 3).text()
 			script = self.feedDB.getScriptById(scriptId)
 			dialog = ScriptPropertiesDialog(script)
 			dialog.exec_()
