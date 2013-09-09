@@ -27,12 +27,12 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-class Script(object):
+class Runnable(object):
     @staticmethod
     def run(feed_data, parsed_entries_guids, **options):
         raise NotImplementedError
 
-class transmissionDaemonScript(Script):
+class transmissionDaemonScript(Runnable):
 
 	_default_options = {
 		'username' : None,
