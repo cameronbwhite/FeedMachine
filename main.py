@@ -1,18 +1,21 @@
 import argparse
+from core import *
 
 parser = argparse.ArgumentParser(
 	description='FeedMachine')
 
+# database - Positional Argument
 parser.add_argument(
 	'database', metavar='database',
 	help='The location of the database',
 	type=str, nargs=1)
 
-# Command Parser
+# Command - Sub Parser
 subparsers = parser.add_subparsers(
 	title='Commands',
 	description='Commands description',
-	help='Commands help')
+	help='Commands help',
+	dest='command')
 
 # Commands
 parserAdd = subparsers.add_parser(
@@ -28,12 +31,13 @@ parserUpdate = subparsers.add_parser(
 parserList = subparsers.add_parser(
 	'list', help='List stuff')
 
-# Command Add
+# Add - Command
 parserAdd.add_argument(
 	'location', metavar='<location>',
 	help='Location of the feed',
 	type=str, nargs=1)
-# Command Attach
+
+# Attach - Command
 parserAttach.add_argument(
 	'feedId', metavar='<feedid>',
 	help='ID of the feed',
@@ -46,7 +50,8 @@ parserAttach.add_argument(
 	'options', metavar='[options]',
 	help='',
 	type=str, nargs=argparse.REMAINDER)
-# Command Detach
+
+# Detach - Command
 parserDetach.add_argument(
 	'scriptId', metavar='<scriptid>',
 	help='',
@@ -54,4 +59,30 @@ parserDetach.add_argument(
 
 if __name__ == '__main__':
 	args = parser.parse_args()
-	print(args)
+	feedDB = FeedDB(args.database[0])
+
+	if args.command == 'add':
+		feedDB.addFeed(args.location[0])
+		pass
+	elif args.command == 'attach':
+		# feedId scriptName **options
+		pass
+	elif args.command == 'detach':
+		# scriptId
+		feedDB.removeScriptById(args.scriptId)
+		pass
+	elif args.command == 'remove':
+		# feedId or location
+		feedDB.removeFeedById(args.feedId)
+		pass
+	elif args.command == 'list':
+		# "some command string"
+		for feed in feedDB.getAllFeeds():
+			print('id: {}, title: {}, location: {}'.\
+				format(feed.id, feed.data.feed.title, feed.location))
+
+	elif args.command == 'update':
+		feedDB.updateAndRunAll()
+	else:
+		# Throw Error
+		pass
