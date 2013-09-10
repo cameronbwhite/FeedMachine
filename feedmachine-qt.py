@@ -24,18 +24,15 @@
 # LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
 # OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
 # SUCH DAMAGE.
-#!/usr/bin/env python3
+#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-import os
-import platform
 import sys
-import scripts
-from config import *
-from functools import partial
+from FeedMachine import core
+from FeedMachine import scripts
+from FeedMachine import config
 from PyQt4.QtGui import *
 from PyQt4.QtCore import *
-from core import *
 
 class MainWidget(QMainWindow):
 
@@ -199,12 +196,12 @@ class MainWidget(QMainWindow):
 	def databaseOpen(self):
 		filename = QFileDialog.getOpenFileName()
 		if filename:
-			self.feedDB = FeedDB(filename)
+			self.feedDB = core.FeedDB(filename)
 
 	def databaseNew(self):
 		filename = QFileDialog.getSaveFileName()
 		if filename:
-			self.feedDB = FeedDB(filename)
+			self.feedDB = core.FeedDB(filename)
 
 	def databaseSave(self):
 		pass
@@ -375,7 +372,7 @@ class ScriptAddDialog(QDialog):
 		# ComboBox
 		self.comboBox = QComboBox(
 			self, activated=self.changeScript)
-		for scriptName in installedScripts:
+		for scriptName in config.installedScripts:
 			self.comboBox.addItem(scriptName)
 
 		# Form
@@ -397,7 +394,7 @@ class ScriptAddDialog(QDialog):
 
 	def changeScript(self, index):
 		self.scriptName = self.comboBox.currentText()
-		self.script = installedScripts[self.scriptName]
+		self.script = config.installedScripts[self.scriptName]
 		self.options = self.script._default_options.copy()
 		self.removeAllOptionWidgets()
 		self.createAllOptionWidgets()

@@ -27,19 +27,15 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-import sqlite3
+from . import Base
+from . import Session
+from . import engine
+from . import scripts
+from . import config
 import feedparser
-import scripts
-from config import *
 from sqlalchemy import Column, Integer, String, PickleType
-from sqlalchemy import create_engine
-from sqlalchemy import ForeignKey
-from sqlalchemy.orm import relationship, backref, scoped_session, sessionmaker
-from sqlalchemy.ext.declarative import declarative_base
-
-Base = declarative_base()
-Session = scoped_session(sessionmaker())
-engine = None
+from sqlalchemy import create_engine, ForeignKey
+from sqlalchemy.orm import relationship, backref
 
 class Feed(Base):
     __tablename__ = 'Feeds'
@@ -133,7 +129,7 @@ class Script(Base):
             format(self.feedId, self.name, self.options)
 
     def getScript(self):
-            return installedScripts[self.name]
+            return config.installedScripts[self.name]
 
     def setOptions(self, options):
         script = self.getScript()

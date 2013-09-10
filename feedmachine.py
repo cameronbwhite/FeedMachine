@@ -1,5 +1,8 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
+from FeedMachine import core
 import argparse
-from core import *
 
 parser = argparse.ArgumentParser(
 	description='FeedMachine')
@@ -59,7 +62,7 @@ parserDetach.add_argument(
 
 if __name__ == '__main__':
 	args = parser.parse_args()
-	feedDB = FeedDB(args.database[0])
+	feedDB = core.FeedDB(args.database[0])
 
 	if args.command == 'add':
 		feedDB.addFeed(args.location[0])
