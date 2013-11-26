@@ -36,56 +36,56 @@ class Runnable(object):
 
 class TransmissionDaemonScript(Runnable):
 
-	_default_options = {
-		'username' : None,
-		'password' : None,
-		'incomplete_dir' : None,
-		'download_dir' : None,
-		'down_limit' : None,
-		'up_limit' : None,
-		'cache_size' : None,
-		'encryption_usage' : 'preferred',
-		'peer_limit' : None,
-		'port' : 9091,
-		'host' : '127.0.0.1',
-	}
+    _default_options = {
+        'username' : None,
+        'password' : None,
+        'incomplete_dir' : None,
+        'download_dir' : None,
+        'down_limit' : None,
+        'up_limit' : None,
+        'cache_size' : None,
+        'encryption_usage' : 'preferred',
+        'peer_limit' : None,
+        'port' : 9091,
+        'host' : '127.0.0.1',
+    }
 
-	@staticmethod
-	def run(feed, options):
+    @staticmethod
+    def run(feed, options):
 
-		for key in options:
-			if not key in TransmissionDaemonScript._default_options:
-				raise KeyError
+        for key in options:
+            if not key in TransmissionDaemonScript._default_options:
+                raise KeyError
 
-		for key in TransmissionDaemonScript._default_options:
-			if not key in options:
-				options[key] = TransmissionDaemonScript._default_options[key]
+        for key in TransmissionDaemonScript._default_options:
+            if not key in options:
+                options[key] = TransmissionDaemonScript._default_options[key]
 
-		guids = feed.getOldGuids()
+        guids = feed.getOldGuids()
 
-		for entry in feed.data.entries:
-			if not entry.guid in guids:
-				for link in entry.links:
-					if link['type'] == 'application/x-bittorrent':
-						os.system(
-							TransmissionDaemonScript.\
-								create_command(link['href'], options))
+        for entry in feed.data.entries:
+            if not entry.guid in guids:
+                for link in entry.links:
+                    if link['type'] == 'application/x-bittorrent':
+                        os.system(
+                            TransmissionDaemonScript.\
+                                create_command(link['href'], options))
 
-	@staticmethod
-	def create_command(location, options):
-		command = 'transmission-remote'
-		if options['host']:
-			command += ' ' + str(options['host'])
-		if options['port']:
-			command += ' ' + str(options['port'])
-		if options['username']:
-			command += ' --auth=' + str(options['username'])
-		if options['password']:
-			command += ':' + str(options['password'])
-		if location:
-			command += ' --add ' + str(location)
-		if options['incomplete_dir']:
-			command += ' --incomplete_dir ' + str(options['incomplete_dir'])
-		if options['download_dir']:
-			command += ' --download-dir ' + str(options['download_dir']) 
-		return command
+    @staticmethod
+    def create_command(location, options):
+        command = 'transmission-remote'
+        if options['host']:
+            command += ' ' + str(options['host'])
+        if options['port']:
+            command += ' ' + str(options['port'])
+        if options['username']:
+            command += ' --auth=' + str(options['username'])
+        if options['password']:
+            command += ':' + str(options['password'])
+        if location:
+            command += ' --add ' + str(location)
+        if options['incomplete_dir']:
+            command += ' --incomplete_dir ' + str(options['incomplete_dir'])
+        if options['download_dir']:
+            command += ' --download-dir ' + str(options['download_dir']) 
+        return command
